@@ -1,0 +1,31 @@
+sort StateOnOff = struct On | Off;
+     BarricadeState = struct Open | Closed;     
+     PositionNW = struct North | South;
+     Barricade = struct Barricade(BarricadeState, PositionNW);
+     Light = struct Light(StateOnOff, PositionNW);
+     Bell = struct Bell(StateOnOff);
+     Component = struct Light | Barricade | Bell;
+     Track = struct A | B;
+     SensorPosition = struct East | Road | West;
+     Sensor = struct Sensor(Track, SensorPosition);
+     Direction = struct EastToWest | WestToEast;
+
+map updateBell: Bell # StateOnOff-> Bell;
+    updateBarricade: Barricade # BarricadeState -> Barricade;
+    updateLight: Light # StateOnOff-> Light;
+
+var bS, bN : Barricade;
+    lN, lS : Light;
+    bell : Bell;
+    sE1, sW1, sT1, sE2, sW2, sT2: Sensor;
+
+eqn updateBell(Bell(On), Off) = Bell(Off);
+    updateBell(Bell(Off), On) = Bell(On);
+%    updateBell(Bell(s), ss) = Bell(ss);
+
+act bell_on: Component;
+    done;
+
+proc trainArrives(track: Track, direction: Direction) = on(bell) . delta;
+
+init trainArrives(A, EastToWest);
