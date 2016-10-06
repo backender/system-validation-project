@@ -1,31 +1,42 @@
-sort StateOnOff = struct On | Off;
-     BarricadeState = struct Open | Closed;     
-     PositionNW = struct North | South;
-     Barricade = struct Barricade(BarricadeState, PositionNW);
-     Light = struct Light(StateOnOff, PositionNW);
-     Bell = struct Bell(StateOnOff);
-     Component = struct Light | Barricade | Bell;
-     Track = struct A | B;
-     SensorPosition = struct East | Road | West;
-     Sensor = struct Sensor(Track, SensorPosition);
-     Direction = struct EastToWest | WestToEast;
+sort 	LightStatus = struct LightOn|LightOff;
+	BellStatus = struct BellOn|BellOff;
+	BarrierDirection = struct Up|Down;
+	Track = struct Track1|Track2;
+	Direction = struct EastToWest|WestToEast;
 
-map updateBell: Bell # StateOnOff-> Bell;
-    updateBarricade: Barricade # BarricadeState -> Barricade;
-    updateLight: Light # StateOnOff-> Light;
+map	isOccupied : Track # Set(Track) -> Bool;
+	makeOccupied : Track # Set(Track) -> Set(Track); 
+	removeOccupied : Track # Set(Track) -> Set(Track);
+	opp: Track -> Track;
 
-var bS, bN : Barricade;
-    lN, lS : Light;
-    bell : Bell;
-    sE1, sW1, sT1, sE2, sW2, sT2: Sensor;
+var	o: Set(Track);
+	t: Track;
 
-eqn updateBell(Bell(On), Off) = Bell(Off);
-    updateBell(Bell(Off), On) = Bell(On);
-%    updateBell(Bell(s), ss) = Bell(ss);
+eqn	isOccupied(t, o) = t in o;
+	makeOccupied(t, o) = {t} + o;
+	removeOccupied(t, o) = o - {t};
+	opp(Track1) = Track2;
+	opp(Track2) = Track1;
 
-act bell_on: Component;
-    done;
 
-proc trainArrives(track: Track, direction: Direction) = on(bell) . delta;
+	
+act 	% External
+	lightSetPower : LightStatus;
+	bellSetPower : BellStatus;
+	barrierMove : BarrierDirection;
+	sensorTrainEnter : Track # Direction;
+	sensorTrainLeave: Track # Direction;
+	%sensorTrainOnCrossing;
 
-init trainArrives(A, EastToWest);
+	% Internal
+
+
+proc	SensorEnter(o: Set(Track)) = sum t: Track, d: Direction
+		. isOccupied(t, o) -> delta
+	%+	isOccupied(opp(t)) ->  % at what stage can we hook in?: light, bell, barrier..?
+	+ sum t: Track, d: Direction .	(!isOccupied(t, o) && !isOccupied(t, o)) -> Light % TODO: set occupied
+	;
+
+	Light = delta;
+
+init SensorEnter({});
