@@ -34,9 +34,30 @@ act 	% External
 proc	SensorEnter(o: Set(Track)) = sum t: Track, d: Direction
 		. isOccupied(t, o) -> delta
 	%+	isOccupied(opp(t)) ->  % at what stage can we hook in?: light, bell, barrier..?
-	+ sum t: Track, d: Direction .	(!isOccupied(t, o) && !isOccupied(t, o)) -> Light % TODO: set occupied
+	+ sum t: Track, d: Direction .	(!isOccupied(t, o) && !isOccupied(t, o)) -> Light(LightOn, makeOccupied(t,o)) % TODO: set occupied
 	;
 
-	Light = delta;
+	Light(s: LightStatus, o: Set(Track)) = 
+		(s == LightOn) -> (
+			({} <= o) -> lightSetPower(LightOn) . Bell(BellOn, o)
+		)
+		+ (s == LightOff) -> (
+			Bell(BellOff, o)
+		);
 
-init SensorEnter({});
+	Bell(s: BellStatus, o: Set(Track)) =
+		(s == BellOn) -> (
+			({} <= o) -> bellSetPower(BellOn) . Barrier(Up)
+		)
+		+ (s == BellOff) -> (
+			delta
+		);
+
+
+	Barrier(s: BarrierDirection) = delta;
+
+	SensorLeave(o: Set(Track)) = delta;
+
+	
+
+init SensorEnter({}) || SensorLeave({});
