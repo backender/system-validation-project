@@ -24,19 +24,19 @@ act 	% External
 	lightSetPower : LightStatus;
 	bellSetPower : BellStatus;
 	barrierMove : BarrierDirection;
-	sensorTrainEnter : Track # Direction;
-	sensorTrainLeave: Track # Direction;
-	%sensorTrainOnCrossing;
+	sensorTrainEnter; % todo
+	sensorTrainLeave; % todo
+	%sensorTrainOnCrossing; % todo
 
 	% Internal
-	setLightSend;
-	setLightReceive;
+	setLightSend : LightStatus;
+	setLightReceive : LightStatus;
 
-	setBellSend;
-	setBellRecieve;
+	setBellSend : BellStatus;
+	setBellRecieve : BellStatus;
 	
-	moveBarrierSend;
-	moveBarrierReceive;
+	moveBarrierSend : BarrierDirection;
+	moveBarrierReceive : BarrierDirection;
 	
 	
 
@@ -98,3 +98,20 @@ proc	Sensor(active: Set(Sensor)) = sum triggered: Sensor
 		
 
 init 
+	allow({
+		%internal communication
+		setLight;
+		setBell;
+		moveBarrier;
+		%external
+		lightSetPower;
+		bellSetPower;
+		barrierMove;
+		%sensor....
+		
+	})
+	comm({
+		setLightSend|setLightReceive->setLight;
+		setBellSend|setBellRecieve->setBell;
+		moveBarrierSend|moveBarrierReceive->moveBarrier;
+	})
