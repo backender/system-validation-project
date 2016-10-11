@@ -29,35 +29,72 @@ act 	% External
 	%sensorTrainOnCrossing;
 
 	% Internal
+	setLightSend;
+	setLightReceive;
 
-
-proc	SensorEnter(o: Set(Track)) = sum t: Track, d: Direction
-		. isOccupied(t, o) -> delta
-	%+	isOccupied(opp(t)) ->  % at what stage can we hook in?: light, bell, barrier..?
-	+ sum t: Track, d: Direction .	(!isOccupied(t, o) && !isOccupied(t, o)) -> Light(LightOn, makeOccupied(t,o)) % TODO: set occupied
-	;
-
-	Light(s: LightStatus, o: Set(Track)) = 
-		(s == LightOn) -> (
-			({} <= o) -> lightSetPower(LightOn) . Bell(BellOn, o)
-		)
-		+ (s == LightOff) -> (
-			Bell(BellOff, o)
-		);
-
-	Bell(s: BellStatus, o: Set(Track)) =
-		(s == BellOn) -> (
-			({} <= o) -> bellSetPower(BellOn) . Barrier(Up)
-		)
-		+ (s == BellOff) -> (
-			delta
-		);
-
-
-	Barrier(s: BarrierDirection) = delta;
-
-	SensorLeave(o: Set(Track)) = delta;
-
+	setBellSend;
+	setBellRecieve;
+	
+	moveBarrierSend;
+	moveBarrierReceive;
+	
 	
 
-init SensorEnter({}) || SensorLeave({});
+proc	Sensor(active: Set(Sensor)) = sum triggered: Sensor
+		% train 1 enters alone (same for train 2)
+		(isEntering(t)) -> (
+			(isOccupied(track)) -> ( 
+				delta
+			) (isFree(track)) -> (
+				(isFree(opp(track))) -> (
+					setLightSend(LightOn) . Sensor(active + triggered)
+				) (isOccupied(opp(track))) -> (
+					Sensor(active + triggered)
+				)
+			)
+		) 
+		% train 1 leaves alone (same for train 2)
+		+ (isLeaving(t)) (
+			(isOccupied(opp(track))) -> (
+				moveBarrierSend(Down) . Sensor(activeSensors - triggeredSensor)
+			) (isFree(opp(track))) -> (
+				Sensor(activeSensors - triggeredSensor)
+			)
+		)
+		% both trains are entering at the same time
+		+ (isEntering(t) && isEntering(opp(t))) ()
+		% both trains are leaving at the same time
+		+ (isLeaving(t) && isLeaving(opp(t))) ()
+		% train 1 enters and train 2 leaves (or vice versa)
+		+ (isEntering(t) && isLeaving(opp(2)))
+	;
+
+	Light = 
+		(setLightReceive(LightOn)) -> (
+			lightSetPower(LightOn) . setBellSend(BellOn) . Light
+		)
+		+ (setLightReceive(LightOff)) -> (
+			lightSetPower(LightOff) . Light
+		);
+
+
+	Bell =
+		(setBellReceive(BellOn)) -> (
+			bellSetPower(BellOn) . moveBarrierSend(Up) . Bell
+		)
+		+ (setBellReceive(BellOff)) -> (
+			bellSetPower(BellOn) . setLightSend(LightOff) . Bell
+		);
+
+
+	Barrier = 
+		(moveBarrierReceive(Up)) -> (
+			barrierMove(Up) . Barrier
+		)
+		+
+		(moveBarrierReceive(Down)) -> (
+			barrierMove(Down) . setBellSend(BellOn) . Barrier
+		);
+		
+
+init 
