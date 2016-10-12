@@ -1,0 +1,134 @@
+sort
+		
+		Sensor			= 		struct  s1e | s1w | s1c| s2e| s2w| s2c;
+		Sensors			=		struct sensors(Set(Sensor), Set(Sensor));
+		Light			=		struct ln | ls;
+		Lights			=		struct lights(Set(Light) , Set(Light));
+		Bell			=		struct Bell;
+		Barricade			=		struct b1| b2;
+		Barricades			= 		struct barricades ( Set(Barricade) , Set(Barricade));
+		Track			=		struct t1 | t2;
+		Tracks			= 		struct tracks(Set(Track) , Set(Track));
+		Position			=		struct Open | Close;
+		Direction			=		struct In | Out;
+		Status			=		struct ON| OFF;
+
+
+	map
+		updateSensor: Sensor # Direction # Sensors -> Sensors;
+		updateLight: Light #Direction # Lights -> Lights;
+		updateBarricade: Barricade # Direction# Barricades -> Barricades;
+		updateBell: Bell # Set(Bell) -> Set(Bell);
+		updateTrack: Track# Direction # Tracks -> Tracks;
+		opp: Direction -> Direction;
+		trackAvailable: Tracks  -> Set(Track);
+		highSensor:	 Sensors -> Set(Sensor);
+		OpenBarricade: Barricades -> Set(Barricade);
+		statusLight: Lights -> Set(Light);
+ 		AvailableTrack: Tracks -> Set(Track);
+		HighSensor: Sensors -> Set(Sensor);
+		BarricadeStatus: Barricades -> Set(Barricade);
+		LightStatus: Lights -> Set(Light);
+
+	var 
+	% Barricade Sets
+		bup , bdown : Set(Barricade);
+	% Light Sets
+		lON, lOF  : Set(Light);
+	% Track Sets
+		tOC , tAV : Set(Track);
+	% Sensor Set
+		sHI, sLO : 	Set(Sensor);
+	% Sensor
+		s : Sensor;
+	%Track Variable
+		t: Track;
+	%Barricade Variable
+		b: Barricade;
+	%Light
+		l: Light;
+
+	eqn
+		opp(In) = Out;
+		opp(Out) = In;
+		updateSensor( s , In , sensors(sHI , sLO ))  = sensors(sHI  +  {s} , sLO -  {s});
+		updateSensor( s , Out , sensors(sHI , sLO ))  = sensors(sHI  -   {s} , sLO +  {s});
+		updateTrack( t , In , tracks(tOC, tAV))		= tracks(tOC+{t} , tAV - {t});
+		updateTrack( t , Out , tracks(tOC, tAV))		= tracks(tOC-{t} , tAV + {t});
+		updateLight(l , In, lights(lON, lOF)) = lights( lON + {l} , lOF -{l});
+		updateLight(l , Out, lights(lON, lOF)) = lights( lON - {l} , lOF +{l});
+		updateBarricade(b , In , barricades(bup,  bdown)) = barricades(bup + {b} , bdown - {b});
+		updateBarricade(b , Out , barricades(bup,  bdown)) = barricades(bup - {b} , bdown + {b});
+		AvailableTrack(tracks(tAV,tOC)  ) = tAV;
+		HighSensor(sensors(sHI,sLO)  ) = sHI;
+		LightStatus(lights(lON, lOF)) = lON;
+		BarricadeStatus(barricades(bup, bdown)) = bup;
+
+		
+
+
+	act
+		unringBell  ;
+		recvSensorLow;
+		ringBell  ;
+		safe: Bool ;
+		sendInwardTrain: Bool;
+		recvInwardTrain: Bool;
+		sendOutwardTrain: Bool;
+		recvOutwardTrain: Bool;
+		sendLightOn: Bool;
+		recvLightOn: Bool;
+		sendLightOff: Bool;
+		recvLightOff: Bool;
+		sendBarrierDown: Bool;
+		recvBarrierDown: Bool;
+		sendBarrierUp: Bool;
+		recvBarrierUp: Bool;
+		setSensorHigh: Bool;
+		setSensorLow: Bool;
+		sendSensorHigh: Bool;
+		sendSensorLow : Bool ;	 
+		recvSensorHigh;
+		InwardTrain: Bool;
+		OutwardTrain: Bool;
+		setLightOff: Bool;
+		setLightOn: Bool;
+		BarrierUp: Bool;
+		BarrierDown: Bool;
+		UnringBell ;
+		RingBell ;
+recvBarricade;
+recvLight;
+recvTrain;
+recvBellRing;
+recvSensor;
+
+	proc
+TrainOnTrack(trk: Tracks , t: Track)=sum t1: Track.(t in AvailableTrack(trk)) -> TrainAwaited(updateTrack(t, In, trk));
+TrainOffTrack(trk: Tracks , t: Track)=sum t1: Track.!(t in AvailableTrack(trk)) -> TrainAwaited(updateTrack(t, Out, trk));
+TrainAwaited(trk: Tracks)= recvTrain.(TrainOnTrack(trk, t1) + TrainOnTrack(trk,t2)+ TrainOffTrack(trk, t1)+TrainOffTrack(trk,t2));
+
+SetSensorHigh(snr: Sensors, s: Sensor)=sum s1: Sensor.( !(s in HighSensor(snr))) -> SensorStatus(updateSensor(s, In , snr));
+SetSensorLow(snr: Sensors, s: Sensor)=sum s1: Sensor.( (s in HighSensor(snr))) -> SensorStatus(updateSensor(s, Out , snr));
+SensorStatus(snr: Sensors) = recvSensor.(SetSensorHigh(snr,s1e)+SetSensorHigh(snr,s1c)+SetSensorHigh(snr,s1w)+SetSensorHigh(snr,s2e)+SetSensorHigh(snr,s2c)+SetSensorHigh(snr,s2w)
+			+SetSensorLow(snr,s1e)+SetSensorLow(snr,s1c)+SetSensorLow(snr,s1w)+SetSensorLow(snr,s2e)+SetSensorLow(snr,s2c)+SetSensorLow(snr,s2w));
+
+SetLightOn(l: Lights , l_l: Light)=sum t1: Light.(l_l in LightStatus(l)) -> LightState(updateLight(l_l, In, l));
+SetLightOff(l: Lights, l_l: Light)=sum t1: Light.!(l_l in LightStatus(l)) -> LightState(updateLight(l_l, Out, l));
+LightState(l: Lights)= recvLight.(SetLightOn(l, ln) + SetLightOn(l, ls)+ SetLightOff(l,ln)+SetLightOff(l,ls));
+
+SetBarricadeClose(b: Barricades , bb: Barricade)=sum t1: Light.(bb in BarricadeStatus(b)) -> SetBellRing.BarricadeState(updateBarricade(bb, In, b)).SetBellUnring;
+SetBarricadeOpen(b: Barricades, bb: Barricade)=sum t1: Light.!(bb in BarricadeStatus(b)) -> SetBellRing.BarricadeState(updateBarricade(bb, Out, b)).SetBellUnring;
+BarricadeState(b: Barricades)= recvBarricade.(SetBarricadeClose(b, b1) + SetBarricadeClose(b, b2)+ SetBarricadeOpen(b,b1)+SetBarricadeOpen(b,b2));
+
+SetBellRing= RingBell.BellStatus;
+SetBellUnring= UnringBell.BellStatus;
+BellStatus=  recvBellRing.(SetBellRing + SetBellUnring);
+
+%train = delta;
+init 
+	 
+
+SensorStatus(sensors({},{s1e,s1c,s1w,s2e,s2w,s2c})) || TrainAwaited(tracks({},{t1,t2}))
+		|| LightState(lights({},{ln,ls}))|| BarricadeState(barricades({},{b1,b2})) || BellStatus;
+	
