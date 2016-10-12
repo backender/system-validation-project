@@ -1,0 +1,116 @@
+	sort
+		
+		Sensor			= 		struct  s1e | s1w | s1c| s2e| s2w| s2c;
+		Sensors			=		struct sensors(Set(Sensor), Set(Sensor));
+		Light			=		struct ln | ls;
+		Lights			=		struct lights(Set(Light) , Set(Light));
+		Bell			=		struct Bell;
+		Barricade			=		struct b1| b2;
+		Barricades			= 		struct barricades ( Set(Barricade) , Set(Barricade));
+		Track			=		struct t1 | t2;
+		Tracks			= 		struct tracks(Set(Track) , Set(Track));
+		Position			=		struct Open | Close;
+		Direction			=		struct In | Out;
+		Status			=		struct ON| OFF;
+
+
+	map
+		updateSensor: Sensor # Direction # Sensors -> Sensors;
+		updateLight: Light #Direction # Lights -> Lights;
+		updateBarricade: Barricade # Direction# Barricades -> Barricades;
+		updateBell: Bell # Set(Bell) -> Set(Bell);
+		updateTrack: Track# Direction # Tracks -> Tracks;
+		opp: Direction -> Direction;
+
+	var 
+	% Barricade Sets
+		bup , bdown : Set(Barricade);
+	% Light Sets
+		lON, lOF  : Set(Light);
+	% Track Sets
+		tOC , tAV : Set(Track);
+	% Sensor Set
+		sHI, sLO : 	Set(Sensor);
+	% Sensor
+		s : Sensor;
+	%Track Variable
+		t: Track;
+	%Barricade Variable
+		b: Barricade;
+	%Light
+		l: Light;
+
+	eqn
+		opp(In) = Out;
+		opp(Out) = In;
+		updateSensor( s , In , sensors(sHI , sLO ))  = sensors(sHI  +  {s} , sLO -  {s});
+		updateSensor( s , Out , sensors(sHI , sLO ))  = sensors(sHI  -   {s} , sLO +  {s});
+		updateTrack( t , In , tracks(tOC, tAV))		= tracks(tOC+{t} , tAV - {t});
+		updateTrack( t , Out , tracks(tOC, tAV))		= tracks(tOC-{t} , tAV + {t});
+		updateLight(l , In, lights(lON, lOF)) = lights( lON + {l} , lOF -{l});
+		updateLight(l , Out, lights(lON, lOF)) = lights( lON - {l} , lOF +{l});
+		updateBarricade(b , In , barricades(bup,  bdown)) = barricades(bup + {b} , bdown - {b});
+		updateBarricade(b , Out , barricades(bup,  bdown)) = barricades(bup - {b} , bdown + {b});
+
+		
+
+
+	act
+		updateSensor: Sensor # Direction # Sensors  ;
+		updateTrack: Track # Direction # Tracks  ;
+		updateLight: Light #Direction # Lights  ;
+		updateBarricade: Barricade # Direction# Barricades ;
+		unringBell  ;
+		ringBell  ;
+		done ;
+	 
+		 
+
+
+	proc
+	Crossing (  trk: Tracks  , b: Barricades, l: Lights ,   snr: Sensors   )= ( 
+		  updateSensor(s2e , In, snr) 
+		. updateTrack(t2 , In , trk ) 
+		. updateLight(ln, In , l) 
+		. updateLight(ls , In , l) 
+		. ringBell
+		. updateBarricade(b2,In , b)
+		. updateBarricade(b2, In, b)
+		. unringBell
+		||
+		  updateSensor(s2c, In , snr)
+		. updateSensor(s2e, Out, snr)
+		||
+		  updateSensor(s2w , In , snr)
+		. updateSensor(s2c , Out, snr)
+		. updateSensor(s2w, Out, snr)
+		. updateTrack(t2, Out ,trk)
+		. ringBell 
+		. updateBarricade(b2,Out, b)
+		. updateBarricade(b2,Out,b)
+		. updateLight(ls, Out , l)
+		||
+		  updateSensor(s1e , In, snr)
+		. updateTrack(t1 , In , trk )
+		. updateLight(ln, In , l)
+		. updateLight(ls , In , l)
+		. ringBell
+		. updateBarricade(b1,In , b)
+		. updateBarricade(b2, In, b)
+		. unringBell
+		||
+		  updateSensor(s1c, In , snr)
+		. updateSensor(s1e, Out, snr)
+		||
+		  updateSensor(s1w , In , snr)
+		. updateSensor(s1c , Out, snr)
+		. updateSensor(s1w, Out, snr)
+		. updateTrack(t1, Out ,trk)
+		. ringBell
+		. updateBarricade(b1,Out, b)
+		. updateBarricade(b2,Out,b)
+		. updateLight(ls, Out , l)
+	);
+	
+
+	init Crossing( tracks({},{t1,t2}), barricades({}, {b1, b2}), lights({},{ln,ls}), sensors({},{s1e,s1w,s1c, s2e,s2w,s2c}));

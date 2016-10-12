@@ -1,116 +1,135 @@
-	sort
-		
-		Sensor			= 		struct  s1e | s1w | s1c| s2e| s2w| s2c;
-		Sensors			=		struct sensors(Set(Sensor), Set(Sensor));
-		Light			=		struct ln | ls;
-		Lights			=		struct lights(Set(Light) , Set(Light));
-		Bell			=		struct Bell;
-		Barricade			=		struct b1| b2;
-		Barricades			= 		struct barricades ( Set(Barricade) , Set(Barricade));
-		Track			=		struct t1 | t2;
-		Tracks			= 		struct tracks(Set(Track) , Set(Track));
-		Position			=		struct Open | Close;
-		Direction			=		struct In | Out;
-		Status			=		struct ON| OFF;
+sort 	
+	Sensor = struct  East | West | Center | None;
+	LightStatus = struct LightOn|LightOff;
+	BellStatus = struct BellOn|BellOff;
+	BarrierDirection = struct Up|Down;
+	TrackID = struct TrackA|TrackB;
+	Direction = struct EastToWest|WestToEast;
 
+map	isOccupied : Sensor # Set(Sensor) -> Bool;
 
-	map
-		updateSensor: Sensor # Direction # Sensors -> Sensors;
-		updateLight: Light #Direction # Lights -> Lights;
-		updateBarricade: Barricade # Direction# Barricades -> Barricades;
-		updateBell: Bell # Set(Bell) -> Set(Bell);
-		updateTrack: Track# Direction # Tracks -> Tracks;
-		opp: Direction -> Direction;
+var	s: Sensor;
+	ss: Set(Sensor);
 
-	var 
-	% Barricade Sets
-		bup , bdown : Set(Barricade);
-	% Light Sets
-		lON, lOF  : Set(Light);
-	% Track Sets
-		tOC , tAV : Set(Track);
-	% Sensor Set
-		sHI, sLO : 	Set(Sensor);
-	% Sensor
-		s : Sensor;
-	%Track Variable
-		t: Track;
-	%Barricade Variable
-		b: Barricade;
-	%Light
-		l: Light;
+eqn	isOccupied(s, ss) = true;
 
-	eqn
-		opp(In) = Out;
-		opp(Out) = In;
-		updateSensor( s , In , sensors(sHI , sLO ))  = sensors(sHI  +  {s} , sLO -  {s});
-		updateSensor( s , Out , sensors(sHI , sLO ))  = sensors(sHI  -   {s} , sLO +  {s});
-		updateTrack( t , In , tracks(tOC, tAV))		= tracks(tOC+{t} , tAV - {t});
-		updateTrack( t , Out , tracks(tOC, tAV))		= tracks(tOC-{t} , tAV + {t});
-		updateLight(l , In, lights(lON, lOF)) = lights( lON + {l} , lOF -{l});
-		updateLight(l , Out, lights(lON, lOF)) = lights( lON - {l} , lOF +{l});
-		updateBarricade(b , In , barricades(bup,  bdown)) = barricades(bup + {b} , bdown - {b});
-		updateBarricade(b , Out , barricades(bup,  bdown)) = barricades(bup - {b} , bdown + {b});
-
-		
-
-
-	act
-		updateSensor: Sensor # Direction # Sensors  ;
-		updateTrack: Track # Direction # Tracks  ;
-		updateLight: Light #Direction # Lights  ;
-		updateBarricade: Barricade # Direction# Barricades ;
-		unringBell  ;
-		ringBell  ;
-		done ;
-	 
-		 
-
-
-	proc
-	Crossing (  trk: Tracks  , b: Barricades, l: Lights ,   snr: Sensors   )= ( 
-		  updateSensor(s2e , In, snr) 
-		. updateTrack(t2 , In , trk ) 
-		. updateLight(ln, In , l) 
-		. updateLight(ls , In , l) 
-		. ringBell
-		. updateBarricade(b2,In , b)
-		. updateBarricade(b2, In, b)
-		. unringBell
-		||
-		  updateSensor(s2c, In , snr)
-		. updateSensor(s2e, Out, snr)
-		||
-		  updateSensor(s2w , In , snr)
-		. updateSensor(s2c , Out, snr)
-		. updateSensor(s2w, Out, snr)
-		. updateTrack(t2, Out ,trk)
-		. ringBell 
-		. updateBarricade(b2,Out, b)
-		. updateBarricade(b2,Out,b)
-		. updateLight(ls, Out , l)
-		||
-		  updateSensor(s1e , In, snr)
-		. updateTrack(t1 , In , trk )
-		. updateLight(ln, In , l)
-		. updateLight(ls , In , l)
-		. ringBell
-		. updateBarricade(b1,In , b)
-		. updateBarricade(b2, In, b)
-		. unringBell
-		||
-		  updateSensor(s1c, In , snr)
-		. updateSensor(s1e, Out, snr)
-		||
-		  updateSensor(s1w , In , snr)
-		. updateSensor(s1c , Out, snr)
-		. updateSensor(s1w, Out, snr)
-		. updateTrack(t1, Out ,trk)
-		. ringBell
-		. updateBarricade(b1,Out, b)
-		. updateBarricade(b2,Out,b)
-		. updateLight(ls, Out , l)
-	);
 	
+act 	% External
+	lightSetPower : LightStatus;
+	bellSetPower : BellStatus;
+	barrierMove : BarrierDirection;
+	sensorTrainEnter; % todo
+	sensorTrainLeave; % todo
+	%sensorTrainOnCrossing; % todo
 
-	init Crossing( tracks({},{t1,t2}), barricades({}, {b1, b2}), lights({},{ln,ls}), sensors({},{s1e,s1w,s1c, s2e,s2w,s2c}));
+	% Internal
+	setLightSend: LightStatus;
+	setLightReceive: LightStatus;
+
+	setBellSend: BellStatus;
+	setBellRecieve: BellStatus;
+	
+	moveBarrierSend: BarrierDirection;
+	moveBarrierReceive: BarrierDirection;
+	
+	% Multiaction
+	setLight: LightStatus;
+	setBell: BellStatus;
+	moveBarrier: BarrierDirection;	
+
+proc	Sensor(trackA: Set(Sensor), trackB: Set(Sensor)) = sum sA: Sensor, sB: Sensor .
+	(isNone(sA) 		&& isNone(sB)) 		-> Sensor(trackA, trackB)
+	(isNone(sA) 		&& isOnCrossing(sB)) 	-> Sensor(trackA, trackB + sB)
+	(isNone(sA) 		&& isEntering(sB, trackB)) 	-> EnteringAlone(TrackB, sB, trackA, trackB)
+	(isNone(sA) 		&& isLeaving(sB, trackB)) 	-> LeavingAlone(TrackB, sB, trackA, trackB)
+	(isOnCrossing(sA) 		&& isNone(sB)) 		-> Sensor(trackA + sA, trackB)
+	(isOnCrossing(sA) 		&& isOnCrossing(sB)) 	-> Sensor(trackA + sA, trackB + sB)
+	(isOnCrossing(sA) 		&& isEntering(sB, trackB)) 	-> EnteringAlone(TrackB, sB, trackA + sA, trackB)
+	(isOnCrossing(sA) 		&& isLeaving(sB, trackB)) 	-> LeavingAlone(TrackB, sB, trackA + sA, trackB)
+	(isEntering(sA, trackA) 	&& isNone(sB)) 		-> EnteringAlone(TrackA, sA, trackA, trackB)
+	(isEntering(sA, trackA) 	&& isOnCrossing(sB, trackB)) 	-> EnteringAlone(TrackA, sA, trackA, trackB + sB)
+%TODO	(isEntering(sA, trackA) 	&& isEntering(sB, trackB)) 	-> EnteringTogether
+%TODO	(isEntering(sA, trackA) 	&& isLeaving(sB, trackB)) 	-> EnteringAndLeaving
+	(isLeaving(sA, trackA) 	&& isNone(sB)) 		-> LeavingAlone(TrackA, sA, trackA, trackB)
+	(isLeaving(sA, trackA) 	&& isOnCrossing(sB)) 	-> LeavingAlone(TrackA, sA, trackA, trackB + sB)
+%TODO	(isLeaving(sA, trackA) 	&& isEntering(sB, trackB)) 	-> EnteringAndLeaving
+%TODO	(isLeaving(sA, trackA) 	&& isLeaving(sB, trackB)) 	-> LeavingTogether
+	;
+
+	EnteringAlone(trackId: TrackID, s: Sensor, trackA: Set(Sensor), trackB: Set(Sensor)) = 
+		isTrackA(trackId) -> (
+			% (isOccupied(trackA)) -> ( delta ) % check obsolete i presume
+			(isOccupied(trackB)) -> Sensor(trackA + s, trackB)
+					<> setLightSend(LightOn) . Sensor(trackA + s, trackB)
+		) <> (
+			% (isOccupied(trackB)) -> delta
+			isOccupied(trackA) -> Sensor(trackA, trackB + s)
+					<> setLightSend(LightOn) . Sensor(trackA, trackB  + s)
+		)
+	;
+
+	LeavingAlone(trackId: TrackID, s: Sensor, trackA: Set(Sensor), trackB: Set(Sensor)) = 
+		(isTrackA(tackId)) -> (
+			(isOccupied(trackB)) -> Sensor({}, trackB)
+					<> moveBarrierSend(Up) . Sensor({}, trackB)
+		) <> (
+			(isOccupied(trackA)) -> Sensor(trackA, {})
+					<> moveBarrierSend(Up) . Sensor(trackA, {})
+		)
+	;
+
+% TODO	EnteringTogether = 
+% TODO 	EnteringAndLeaving = 
+% TODO	LeavingTogether = 
+
+
+	Light = 
+		setLightReceive(LightOn) -> (
+			lightSetPower(LightOn) . setBellSend(BellOn) . Light
+		)
+		+ (setLightReceive(LightOff)) -> (
+			lightSetPower(LightOff) . Light
+		);
+
+
+	Bell =
+		setBellReceive(BellOn) -> (
+			bellSetPower(BellOn) . moveBarrierSend(Up) . Bell
+		)
+		+ (setBellReceive(BellOff)) -> (
+			bellSetPower(BellOn) . setLightSend(LightOff) . Bell
+		);
+
+
+	Barrier = 
+		moveBarrierReceive(Up) -> (
+			barrierMove(Up) . Barrier
+		)
+		+
+		moveBarrierReceive(Down) -> (
+			barrierMove(Down) . setBellSend(BellOn) . Barrier
+		);
+		
+
+init 
+	allow(
+		{
+		%internal communication
+		setLight,
+		setBell,
+		moveBarrier,
+		%external
+		lightSetPower,
+		bellSetPower,
+		barrierMove
+		%sensor....
+		}, 
+		comm(
+			{
+			setLightSend|setLightReceive->setLight,
+			setBellSend|setBellRecieve->setBell,
+			moveBarrierSend|moveBarrierReceive->moveBarrier
+			},
+			Sensor({}, {}) || Light || Bell || Barrier
+		)	
+	);
