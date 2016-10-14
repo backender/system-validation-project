@@ -7,12 +7,29 @@ sort
 	Direction = struct EastToWest|WestToEast;
 
 map	isOccupied : Sensor # Set(Sensor) -> Bool;
+	isTrackA : TrackID -> Bool;
+	isNone: Sensor -> Bool;
+	isOnCrossing: Sensor -> Bool;
+	isEntering: Sensor # Set(Sensor) -> Bool;
+	isLeaving: Sensor # Set(Sensor) -> Bool;
 
 var	s: Sensor;
 	ss: Set(Sensor);
 
 eqn	isOccupied(s, ss) = true;
-
+	isTrackA(TrackA) = true;
+	isTrackA(TrackB) = false;
+	isNone(None) = true;
+	isNone(s) = false;
+	isOnCrossing(Center) = true;
+	isOnCrossing(s) = false;
+	isEntering(East, ss) = (ss == {});
+	isEntering(West, ss) = (ss == {});
+	isEntering(s, ss) = false;
+	isLeaving(s, ss) = false;	
+	isLeaving(East, ss) = (ss == {West, Center});
+	isLeaving(West, ss) = (ss == {East, Center});
+	isLeaving(s, ss) = false;	
 	
 act 	% External
 	lightSetPower : LightStatus;
@@ -26,37 +43,37 @@ act 	% External
 	setLightSend: LightStatus;
 	setLightReceive: LightStatus;
 
-	setBellSend: BellStatus;
-	setBellRecieve: BellStatus;
+	setBellSend, setBellReceive, setBell: BellStatus;
 	
-	moveBarrierSend: BarrierDirection;
-	moveBarrierReceive: BarrierDirection;
+	moveBarrierSend, moveBarrierReceive, moveBarrier: BarrierDirection;
 	
 	% Multiaction
 	setLight: LightStatus;
-	setBell: BellStatus;
-	moveBarrier: BarrierDirection;	
 
-proc	Sensor(trackA: Set(Sensor), trackB: Set(Sensor)) = sum sA: Sensor, sB: Sensor .
+
+
+proc	Sensor(trackA: Set(Sensor), trackB: Set(Sensor)) = sum sA: Sensor, sB: Sensor . (
 	(isNone(sA) 		&& isNone(sB)) 		-> Sensor(trackA, trackB)
-	(isNone(sA) 		&& isOnCrossing(sB)) 	-> Sensor(trackA, trackB + sB)
-	(isNone(sA) 		&& isEntering(sB, trackB)) 	-> EnteringAlone(TrackB, sB, trackA, trackB)
-	(isNone(sA) 		&& isLeaving(sB, trackB)) 	-> LeavingAlone(TrackB, sB, trackA, trackB)
-	(isOnCrossing(sA) 		&& isNone(sB)) 		-> Sensor(trackA + sA, trackB)
-	(isOnCrossing(sA) 		&& isOnCrossing(sB)) 	-> Sensor(trackA + sA, trackB + sB)
-	(isOnCrossing(sA) 		&& isEntering(sB, trackB)) 	-> EnteringAlone(TrackB, sB, trackA + sA, trackB)
-	(isOnCrossing(sA) 		&& isLeaving(sB, trackB)) 	-> LeavingAlone(TrackB, sB, trackA + sA, trackB)
-	(isEntering(sA, trackA) 	&& isNone(sB)) 		-> EnteringAlone(TrackA, sA, trackA, trackB)
-	(isEntering(sA, trackA) 	&& isOnCrossing(sB, trackB)) 	-> EnteringAlone(TrackA, sA, trackA, trackB + sB)
-%TODO	(isEntering(sA, trackA) 	&& isEntering(sB, trackB)) 	-> EnteringTogether
-%TODO	(isEntering(sA, trackA) 	&& isLeaving(sB, trackB)) 	-> EnteringAndLeaving
-	(isLeaving(sA, trackA) 	&& isNone(sB)) 		-> LeavingAlone(TrackA, sA, trackA, trackB)
-	(isLeaving(sA, trackA) 	&& isOnCrossing(sB)) 	-> LeavingAlone(TrackA, sA, trackA, trackB + sB)
-%TODO	(isLeaving(sA, trackA) 	&& isEntering(sB, trackB)) 	-> EnteringAndLeaving
-%TODO	(isLeaving(sA, trackA) 	&& isLeaving(sB, trackB)) 	-> LeavingTogether
+	+(isNone(sA) 		&& isOnCrossing(sB)) 	-> Sensor(trackA, trackB + {sB})
+	+(isNone(sA) 		&& isEntering(sB, trackB)) 	-> EnteringAlone(TrackB, sB, trackA, trackB)
+	+(isNone(sA) 		&& isLeaving(sB, trackB)) 	-> LeavingAlone(TrackB, sB, trackA, trackB)
+	+(isOnCrossing(sA) 		&& isNone(sB)) 		-> Sensor(trackA + {sA}, trackB)
+	+(isOnCrossing(sA) 		&& isOnCrossing(sB)) 	-> Sensor(trackA + {sA}, trackB + {sB})
+	+(isOnCrossing(sA) 		&& isEntering(sB, trackB)) 	-> EnteringAlone(TrackB, sB, trackA + {sA}, trackB)
+	+(isOnCrossing(sA) 		&& isLeaving(sB, trackB)) 	-> LeavingAlone(TrackB, sB, trackA + {sA}, trackB)
+	+(isEntering(sA, trackA) 	&& isNone(sB)) 		-> EnteringAlone(TrackA, sA, trackA, trackB)
+	+(isEntering(sA, trackA) 	&& isOnCrossing(sB)) 	-> EnteringAlone(TrackA, sA, trackA, trackB + {sB})
+%TODO	+(isEntering(sA, trackA) 	&& isEntering(sB, trackB)) 	-> EnteringTogether
+%TODO	+(isEntering(sA, trackA) 	&& isLeaving(sB, trackB)) 	-> EnteringAndLeaving
+	+(isLeaving(sA, trackA) 	&& isNone(sB)) 		-> LeavingAlone(TrackA, sA, trackA, trackB)
+	+(isLeaving(sA, trackA) 	&& isOnCrossing(sB)) 	-> LeavingAlone(TrackA, sA, trackA, trackB + {sB})
+%TODO	+(isLeaving(sA, trackA) 	&& isEntering(sB, trackB)) 	-> EnteringAndLeaving
+%TODO	+(isLeaving(sA, trackA) 	&& isLeaving(sB, trackB)) 	-> LeavingTogether
+	)
 	;
 
-	EnteringAlone(trackId: TrackID, s: Sensor, trackA: Set(Sensor), trackB: Set(Sensor)) = 
+
+	EnteringAlone(trackId: TrackID, s: Sensor, trackA: Set(Sensor), trackB: Set(Sensor)) =
 		isTrackA(trackId) -> (
 			% (isOccupied(trackA)) -> ( delta ) % check obsolete i presume
 			(isOccupied(trackB)) -> Sensor(trackA + s, trackB)
@@ -67,6 +84,7 @@ proc	Sensor(trackA: Set(Sensor), trackB: Set(Sensor)) = sum sA: Sensor, sB: Sens
 					<> setLightSend(LightOn) . Sensor(trackA, trackB  + s)
 		)
 	;
+
 
 	LeavingAlone(trackId: TrackID, s: Sensor, trackA: Set(Sensor), trackB: Set(Sensor)) = 
 		(isTrackA(tackId)) -> (
@@ -84,31 +102,25 @@ proc	Sensor(trackA: Set(Sensor), trackB: Set(Sensor)) = sum sA: Sensor, sB: Sens
 
 
 	Light = 
-		setLightReceive(LightOn) -> (
-			lightSetPower(LightOn) . setBellSend(BellOn) . Light
-		)
-		+ (setLightReceive(LightOff)) -> (
-			lightSetPower(LightOff) . Light
-		);
+		setLightReceive(LightOn). lightSetPower(LightOn) . setBellSend(BellOn) . Light
+		+ 
+		setLightReceive(LightOff). lightSetPower(LightOff) . Light
+		;
+
 
 
 	Bell =
-		setBellReceive(BellOn) -> (
-			bellSetPower(BellOn) . moveBarrierSend(Up) . Bell
-		)
-		+ (setBellReceive(BellOff)) -> (
-			bellSetPower(BellOn) . setLightSend(LightOff) . Bell
-		);
+		setBellReceive(BellOn) . bellSetPower(BellOn) . moveBarrierSend(Up) . Bell
+		+ 
+		setBellReceive(BellOff) . bellSetPower(BellOn) . setLightSend(LightOff) . Bell
+		;
 
 
 	Barrier = 
-		moveBarrierReceive(Up) -> (
-			barrierMove(Up) . Barrier
-		)
+		moveBarrierReceive(Up) . barrierMove(Up) . Barrier
 		+
-		moveBarrierReceive(Down) -> (
-			barrierMove(Down) . setBellSend(BellOn) . Barrier
-		);
+		moveBarrierReceive(Down) . barrierMove(Down) . setBellSend(BellOn) . Barrier
+		;
 		
 
 init 
@@ -127,7 +139,7 @@ init
 		comm(
 			{
 			setLightSend|setLightReceive->setLight,
-			setBellSend|setBellRecieve->setBell,
+			setBellSend|setBellReceive->setBell,
 			moveBarrierSend|moveBarrierReceive->moveBarrier
 			},
 			Sensor({}, {}) || Light || Bell || Barrier
