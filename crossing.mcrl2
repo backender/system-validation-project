@@ -6,7 +6,7 @@ sort
 	TrackID = struct TrackA|TrackB;
 	Direction = struct EastToWest|WestToEast;
 
-map	isOccupied : Sensor # Set(Sensor) -> Bool;
+map	isOccupied : Set(Sensor) -> Bool;
 	isTrackA : TrackID -> Bool;
 	isNone: Sensor -> Bool;
 	isOnCrossing: Sensor -> Bool;
@@ -16,7 +16,7 @@ map	isOccupied : Sensor # Set(Sensor) -> Bool;
 var	s: Sensor;
 	ss: Set(Sensor);
 
-eqn	isOccupied(s, ss) = true;
+eqn	isOccupied(ss) = !(ss == {});
 	isTrackA(TrackA) = true;
 	isTrackA(TrackB) = false;
 	isNone(None) = true;
@@ -50,15 +50,16 @@ act 	% External
 	% Multiaction
 	setLight: LightStatus;
 
+	idle;
 
 
 proc	Sensor(trackA: Set(Sensor), trackB: Set(Sensor)) = sum sA: Sensor, sB: Sensor . (
-	(isNone(sA) 		&& isNone(sB)) 		-> Sensor(trackA, trackB)
-	+(isNone(sA) 		&& isOnCrossing(sB)) 	-> Sensor(trackA, trackB + {sB})
+	(isNone(sA) 		&& isNone(sB)) 		-> idle . Sensor(trackA, trackB)
+	+(isNone(sA) 		&& isOnCrossing(sB)) 	-> idle . Sensor(trackA, trackB + {sB})
 	+(isNone(sA) 		&& isEntering(sB, trackB)) 	-> EnteringAlone(TrackB, sB, trackA, trackB)
 	+(isNone(sA) 		&& isLeaving(sB, trackB)) 	-> LeavingAlone(TrackB, sB, trackA, trackB)
-	+(isOnCrossing(sA) 		&& isNone(sB)) 		-> Sensor(trackA + {sA}, trackB)
-	+(isOnCrossing(sA) 		&& isOnCrossing(sB)) 	-> Sensor(trackA + {sA}, trackB + {sB})
+	+(isOnCrossing(sA) 		&& isNone(sB)) 		-> idle . Sensor(trackA + {sA}, trackB)
+	+(isOnCrossing(sA) 		&& isOnCrossing(sB)) 	-> idle . Sensor(trackA + {sA}, trackB + {sB})
 	+(isOnCrossing(sA) 		&& isEntering(sB, trackB)) 	-> EnteringAlone(TrackB, sB, trackA + {sA}, trackB)
 	+(isOnCrossing(sA) 		&& isLeaving(sB, trackB)) 	-> LeavingAlone(TrackB, sB, trackA + {sA}, trackB)
 	+(isEntering(sA, trackA) 	&& isNone(sB)) 		-> EnteringAlone(TrackA, sA, trackA, trackB)
@@ -76,22 +77,22 @@ proc	Sensor(trackA: Set(Sensor), trackB: Set(Sensor)) = sum sA: Sensor, sB: Sens
 	EnteringAlone(trackId: TrackID, s: Sensor, trackA: Set(Sensor), trackB: Set(Sensor)) =
 		isTrackA(trackId) -> (
 			% (isOccupied(trackA)) -> ( delta ) % check obsolete i presume
-			(isOccupied(trackB)) -> Sensor(trackA + s, trackB)
-					<> setLightSend(LightOn) . Sensor(trackA + s, trackB)
+			(isOccupied(trackB)) -> idle . Sensor(trackA + {s}, trackB)
+					<> setLightSend(LightOn) . Sensor(trackA + {s}, trackB)
 		) <> (
 			% (isOccupied(trackB)) -> delta
-			isOccupied(trackA) -> Sensor(trackA, trackB + s)
-					<> setLightSend(LightOn) . Sensor(trackA, trackB  + s)
+			isOccupied(trackA) -> idle . Sensor(trackA, trackB + {s})
+					<> setLightSend(LightOn) . Sensor(trackA, trackB  + {s})
 		)
 	;
 
 
 	LeavingAlone(trackId: TrackID, s: Sensor, trackA: Set(Sensor), trackB: Set(Sensor)) = 
-		(isTrackA(tackId)) -> (
-			(isOccupied(trackB)) -> Sensor({}, trackB)
+		(isTrackA(trackId)) -> (
+			(isOccupied(trackB)) -> idle . Sensor({}, trackB)
 					<> moveBarrierSend(Up) . Sensor({}, trackB)
 		) <> (
-			(isOccupied(trackA)) -> Sensor(trackA, {})
+			(isOccupied(trackA)) -> idle . Sensor(trackA, {})
 					<> moveBarrierSend(Up) . Sensor(trackA, {})
 		)
 	;
@@ -126,15 +127,18 @@ proc	Sensor(trackA: Set(Sensor), trackB: Set(Sensor)) = sum sA: Sensor, sB: Sens
 init 
 	allow(
 		{
-		%internal communication
-		setLight,
-		setBell,
-		moveBarrier,
-		%external
 		lightSetPower,
 		bellSetPower,
-		barrierMove
-		%sensor....
+		barrierMove ,
+		sensorTrainEnter,
+		sensorTrainLeave,
+		%sensorTrainOnCrossing,
+		setLightSend,
+		setLightReceive,
+		setBellSend, setBellReceive, setBell,
+		moveBarrierSend, moveBarrierReceive, moveBarrier,
+		setLight,
+		idle
 		}, 
 		comm(
 			{
