@@ -96,10 +96,10 @@ proc
 
 	LeavingAlone(trackId: TrackID, s: Sensor, trackA: Set(Sensor), trackB: Set(Sensor)) = 
 		(isTrackA(trackId)) -> (
-			(isOccupied(trackB)) -> idle . Sensor({}, trackB)
+			(isOccupied(trackB)) -> ( sensorTrainCenterA(false).sensorTrainLeaveA (false). sensorTrainEnterA(false)) . Sensor({}, trackB)
 					<> moveBarrierSend(Up) . Sensor({}, trackB)
 		) <> (
-			(isOccupied(trackA)) -> idle . Sensor(trackA, {})
+			(isOccupied(trackA)) -> ( sensorTrainCenterB(false). sensorTrainEnterB(false).  sensorTrainLeaveB (false)) . Sensor(trackA, {})
 					<> moveBarrierSend(Up) . Sensor(trackA, {})
 		)
 	;
@@ -108,10 +108,10 @@ proc
  	
 
 	EnteringAndLeaving(trackId: TrackID, sA: Sensor, sB: Sensor, trackA: Set(Sensor), trackB: Set(Sensor)) = 
-		(isTrackA(trackId)) -> ( idle.Sensor(trackA+{sA},  trackB-{sB})) +
-			(!isTrackA(trackId))-> ( idle.Sensor(trackA-{sA},  trackB+{sB}));
+		(isTrackA(trackId)) -> ( ( sensorTrainCenterB(false). sensorTrainEnterB(false).  sensorTrainLeaveB (false)).Sensor(trackA+{sA},  trackB-{sB})) +
+			(!isTrackA(trackId))-> ( ( sensorTrainCenterA(false).sensorTrainLeaveA (false). sensorTrainEnterA(false)).Sensor(trackA-{sA},  trackB+{sB}));
  	
-	LeavingTogether = moveBarrierSend(Up).Sensor({},{});
+	LeavingTogether = ( sensorTrainCenterA(false).sensorTrainLeaveA (false). sensorTrainEnterA(false). sensorTrainCenterB(false). sensorTrainEnterB(false).  sensorTrainLeaveB (false)). moveBarrierSend(Up).Sensor({},{});
 
 
 	Light = 
