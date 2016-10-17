@@ -51,10 +51,10 @@ act 	% External
 	setLight: LightStatus;
 	sensorTrainCenterA: Bool;
 	sensorTrainCenterB: Bool;
-	sensorTrainEnterA: Bool;
-	sensorTrainEnterB: Bool;
-	sensorTrainLeaveA : Bool;
-	sensorTrainLeaveB : Bool;
+	sensorTrainEastA: Bool;
+	sensorTrainEastB: Bool;
+	sensorTrainWestA : Bool;
+	sensorTrainWestB : Bool;
 
 	idle;
 
@@ -63,20 +63,20 @@ proc
 	Sensor(trackA: Set(Sensor), trackB: Set(Sensor)) = sum sA: Sensor, sB: Sensor . (
 	(isNone(sA) 		&& isNone(sB)) 		-> idle . Sensor(trackA, trackB)
 	+(isNone(sA) 		&& isOnCrossing(sB)) 	-> sensorTrainCenterB(true) . Sensor(trackA, trackB + {sB})
-	+(isNone(sA) 		&& isEntering(sB, trackB)) 	-> sensorTrainEnterB(true).EnteringAlone(TrackB, sB, trackA, trackB)
-	+(isNone(sA) 		&& isLeaving(sB, trackB)) 	-> sensorTrainLeaveB(true).LeavingAlone(TrackB, sB, trackA, trackB)
+	+(isNone(sA) 		&& isEntering(sB, trackB)) 	-> sensorTrainEastB(true).EnteringAlone(TrackB, sB, trackA, trackB)
+	+(isNone(sA) 		&& isLeaving(sB, trackB)) 	-> sensorTrainWestB(true).LeavingAlone(TrackB, sB, trackA, trackB)
 	+(isOnCrossing(sA) 		&& isNone(sB)) 		-> sensorTrainCenterA(true) . Sensor(trackA + {sA}, trackB)
 	+(isOnCrossing(sA) 		&& isOnCrossing(sB)) 	-> (sensorTrainCenterA(true).sensorTrainCenterB(true) + sensorTrainCenterB(true).sensorTrainCenterA(true)) . Sensor(trackA + {sA}, trackB + {sB})
-	+(isOnCrossing(sA) 		&& isEntering(sB, trackB)) 	-> (sensorTrainCenterA(true).sensorTrainEnterB(true) + sensorTrainEnterB(true).sensorTrainCenterA(true)).EnteringAlone(TrackB, sB, trackA + {sA}, trackB)
-	+(isOnCrossing(sA) 		&& isLeaving(sB, trackB)) 	-> (sensorTrainCenterA(true).sensorTrainLeaveB(true)+sensorTrainLeaveB(true).sensorTrainCenterA(true)).LeavingAlone(TrackB, sB, trackA + {sA}, trackB)
-	+(isEntering(sA, trackA) 	&& isNone(sB)) 		-> (sensorTrainEnterA(true)).EnteringAlone(TrackA, sA, trackA, trackB)
-	+(isEntering(sA, trackA) 	&& isOnCrossing(sB)) 	-> (sensorTrainCenterB(true).sensorTrainEnterA(true)+sensorTrainEnterA(true).sensorTrainCenterB(true)).EnteringAlone(TrackA, sA, trackA, trackB  )
-	+(isEntering(sA, trackA) 	&& isEntering(sB, trackB)) 	-> (sensorTrainEnterA(true).sensorTrainEnterB(true)+sensorTrainEnterB(true).sensorTrainEnterA(true)).EnteringTogether(sA, sB, trackA, trackB)
- 	+(isEntering(sA, trackA) 	&& isLeaving(sB, trackB)) 	-> (sensorTrainEnterA(true).sensorTrainLeaveB(true) +sensorTrainLeaveB(true).sensorTrainEnterA(true)).EnteringAndLeaving(TrackA, sA, sB,trackA, trackB)
-	+(isLeaving(sA, trackA) 	&& isNone(sB)) 		-> sensorTrainLeaveA(true).LeavingAlone(TrackA, sA, trackA, trackB)
-	+(isLeaving(sA, trackA) 	&& isOnCrossing(sB)) 	-> (sensorTrainLeaveA(true).sensorTrainCenterB(true)  + sensorTrainCenterB(true).sensorTrainLeaveA(true) ).	LeavingAlone(TrackA, sA, trackA, trackB + {sB})
- 	+(isLeaving(sA, trackA) 	&& isEntering(sB, trackB)) 	->  (sensorTrainLeaveA(true) .sensorTrainEnterB(true) + sensorTrainEnterB(true). sensorTrainLeaveA(true) ).EnteringAndLeaving(TrackB, sA, sB,trackA, trackB)
- 	+(isLeaving(sA, trackA) 	&& isLeaving(sB, trackB)) 	-> (sensorTrainLeaveA(true).sensorTrainLeaveB(true)  + sensorTrainLeaveB(true).sensorTrainLeaveA(true) ). LeavingTogether
+	+(isOnCrossing(sA) 		&& isEntering(sB, trackB)) 	-> (sensorTrainCenterA(true).sensorTrainEastB(true) + sensorTrainEastB(true).sensorTrainCenterA(true)).EnteringAlone(TrackB, sB, trackA + {sA}, trackB)
+	+(isOnCrossing(sA) 		&& isLeaving(sB, trackB)) 	-> (sensorTrainCenterA(true).sensorTrainWestB(true)+sensorTrainWestB(true).sensorTrainCenterA(true)).LeavingAlone(TrackB, sB, trackA + {sA}, trackB)
+	+(isEntering(sA, trackA) 	&& isNone(sB)) 		-> (sensorTrainEastA(true)).EnteringAlone(TrackA, sA, trackA, trackB)
+	+(isEntering(sA, trackA) 	&& isOnCrossing(sB)) 	-> (sensorTrainCenterB(true).sensorTrainEastA(true)+sensorTrainEastA(true).sensorTrainCenterB(true)).EnteringAlone(TrackA, sA, trackA, trackB  )
+	+(isEntering(sA, trackA) 	&& isEntering(sB, trackB)) 	-> (sensorTrainEastA(true).sensorTrainEastB(true)+sensorTrainEastB(true).sensorTrainEastA(true)).EnteringTogether(sA, sB, trackA, trackB)
+ 	+(isEntering(sA, trackA) 	&& isLeaving(sB, trackB)) 	-> (sensorTrainEastA(true).sensorTrainWestB(true) +sensorTrainWestB(true).sensorTrainEastA(true)).EnteringAndLeaving(TrackA, sA, sB,trackA, trackB)
+	+(isLeaving(sA, trackA) 	&& isNone(sB)) 		-> sensorTrainWestA(true).LeavingAlone(TrackA, sA, trackA, trackB)
+	+(isLeaving(sA, trackA) 	&& isOnCrossing(sB)) 	-> (sensorTrainWestA(true).sensorTrainCenterB(true)  + sensorTrainCenterB(true).sensorTrainWestA(true) ).	LeavingAlone(TrackA, sA, trackA, trackB + {sB})
+ 	+(isLeaving(sA, trackA) 	&& isEntering(sB, trackB)) 	->  (sensorTrainWestA(true) .sensorTrainEastB(true) + sensorTrainEastB(true). sensorTrainWestA(true) ).EnteringAndLeaving(TrackB, sA, sB,trackA, trackB)
+ 	+(isLeaving(sA, trackA) 	&& isLeaving(sB, trackB)) 	-> (sensorTrainWestA(true).sensorTrainWestB(true)  + sensorTrainWestB(true).sensorTrainWestA(true) ). LeavingTogether
 	
 	)
 ;
@@ -96,10 +96,10 @@ proc
 
 	LeavingAlone(trackId: TrackID, s: Sensor, trackA: Set(Sensor), trackB: Set(Sensor)) = 
 		(isTrackA(trackId)) -> (
-			(isOccupied(trackB)) -> ( sensorTrainCenterA(false).sensorTrainLeaveA (false). sensorTrainEnterA(false)) . Sensor({}, trackB)
+			(isOccupied(trackB)) -> ( sensorTrainCenterA(false).sensorTrainWestA (false). sensorTrainEastA(false)) . Sensor({}, trackB)
 					<> moveBarrierSend(Up) . Sensor({}, trackB)
 		) <> (
-			(isOccupied(trackA)) -> ( sensorTrainCenterB(false). sensorTrainEnterB(false).  sensorTrainLeaveB (false)) . Sensor(trackA, {})
+			(isOccupied(trackA)) -> ( sensorTrainCenterB(false). sensorTrainEastB(false).  sensorTrainWestB (false)) . Sensor(trackA, {})
 					<> moveBarrierSend(Up) . Sensor(trackA, {})
 		)
 	;
@@ -108,10 +108,10 @@ proc
  	
 
 	EnteringAndLeaving(trackId: TrackID, sA: Sensor, sB: Sensor, trackA: Set(Sensor), trackB: Set(Sensor)) = 
-		(isTrackA(trackId)) -> ( ( sensorTrainCenterB(false). sensorTrainEnterB(false).  sensorTrainLeaveB (false)).Sensor(trackA+{sA},  trackB-{sB})) +
-			(!isTrackA(trackId))-> ( ( sensorTrainCenterA(false).sensorTrainLeaveA (false). sensorTrainEnterA(false)).Sensor(trackA-{sA},  trackB+{sB}));
+		(isTrackA(trackId)) -> ( ( sensorTrainCenterB(false). sensorTrainEastB(false).  sensorTrainWestB (false)).Sensor(trackA+{sA},  trackB-{sB})) +
+			(!isTrackA(trackId))-> ( ( sensorTrainCenterA(false).sensorTrainWestA (false). sensorTrainEastA(false)).Sensor(trackA-{sA},  trackB+{sB}));
  	
-	LeavingTogether = ( sensorTrainCenterA(false).sensorTrainLeaveA (false). sensorTrainEnterA(false). sensorTrainCenterB(false). sensorTrainEnterB(false).  sensorTrainLeaveB (false)). moveBarrierSend(Up).Sensor({},{});
+	LeavingTogether =  moveBarrierSend(Up).( sensorTrainCenterA(false).sensorTrainWestA (false). sensorTrainEastA(false). sensorTrainCenterB(false). sensorTrainEastB(false).  sensorTrainWestB (false)).Sensor({},{});
 
 
 	Light = 
@@ -142,8 +142,8 @@ init
 		lightSetPower,
 		bellSetPower,
 		barrierMove ,
-		sensorTrainEnter,
-		sensorTrainLeave,
+		sensorTrainEast,
+		sensorTrainWest,
 		%sensorTrainOnCrossing,
 		setLightSend,
 		setLightReceive,
@@ -153,10 +153,10 @@ init
 		idle,
 		 sensorTrainCenterA
 		, sensorTrainCenterB
-		, sensorTrainEnterA 
-		, sensorTrainEnterB 
-		, sensorTrainLeaveA 
-		,sensorTrainLeaveB 
+		, sensorTrainEastA 
+		, sensorTrainEastB 
+		, sensorTrainWestA 
+		,sensorTrainWestB 
 
 
 		}, 
@@ -166,6 +166,6 @@ init
 			setBellSend|setBellReceive->setBell,
 			moveBarrierSend|moveBarrierReceive->moveBarrier
 			},
-			( sensorTrainCenterA(false) + sensorTrainCenterB(false) + sensorTrainEnterA(false) + sensorTrainEnterB(false) + sensorTrainLeaveA(false) +sensorTrainLeaveB(false) )||(Sensor({}, {}) || Light || Bell || Barrier  )
+			( sensorTrainCenterA(false) + sensorTrainCenterB(false) + sensorTrainEastA(false) + sensorTrainEastB(false) + sensorTrainWestA(false) +sensorTrainWestB(false) )||(Sensor({}, {}) || Light || Bell || Barrier  )
 		)	
 	);
