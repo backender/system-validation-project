@@ -277,7 +277,7 @@ proc
 
 		+
 
-		moveNorthBarrierReceive(Down) . NorthbarrierMove(Down) . Barrier
+		moveNorthBarrierReceive(Down) . NorthbarrierMove(Down) . moveSouthBarrierSend(Down). Barrier
 
 		+
                 moveSouthBarrierReceive(Up) . SouthbarrierMove(Up).   setBellSend(BellOff)  . Barrier
@@ -359,7 +359,7 @@ init
 
 			},
 
-			( sensorTrainCenterA  + sensorTrainCenterB + sensorTrainEastA + sensorTrainEastB + sensorTrainWestA +sensorTrainWestB )||(Sensor({}, {}) || Light || Bell || Barrier  )
+			 (Sensor({}, {}) || Light || Bell || Barrier  )
 
 		)	
 
