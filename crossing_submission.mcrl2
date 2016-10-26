@@ -360,7 +360,13 @@ init
 
 			},
 
-			 (Sensor({}, {}) || Light || Bell || Barrier  )
+			 (lightNorthSetPower(LightOff).
+lightSouthSetPower(LightOff).
+bellSetPower(BellOff).
+NorthbarrierMove(Up) .
+SouthbarrierMove(Up) .
+sensorTrainCenterA(false).
+sensorTrainCenterB(false))||(Sensor({}, {}) || Light || Bell || Barrier  )
 
 		)	
 
