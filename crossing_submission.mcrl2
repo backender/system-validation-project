@@ -200,13 +200,13 @@ proc
 
 			(isOccupied(trackB)) ->  Sensor({}, trackB)
 
-					<> moveNorthBarrierSend(Up) . Sensor({}, trackB)
+					<> moveNorthBarrierSend(Up).sensorTrainCenterA(false) . Sensor({}, trackB)
 
 		) <> (
 
 			(isOccupied(trackA)) ->     Sensor(trackA, {})
 
-					<> moveNorthBarrierSend(Up) . Sensor(trackA, {})
+					<> moveNorthBarrierSend(Up).sensorTrainCenterB(false) . Sensor(trackA, {})
 
 		)
 
@@ -222,13 +222,13 @@ proc
 
 	EnteringAndLeaving(trackId: TrackID, sA: Sensor, sB: Sensor, trackA: Set(Sensor), trackB: Set(Sensor)) = 
 
-		(isTrackA(trackId)) -> (  Sensor(trackA+{sA},  trackB-{sB})) +
+		(isTrackA(trackId)) -> sensorTrainCenterB(false).  ( Sensor(trackA+{sA},  {})) +
 
-			(!isTrackA(trackId))-> ( Sensor(trackA-{sA},  trackB+{sB}));
+			(!isTrackA(trackId))->  sensorTrainCenterA(false).  ( Sensor( {},  trackB+{sB}));
 
  	
 
-	LeavingTogether =  moveNorthBarrierSend(Up). Sensor({},{});
+	LeavingTogether =  moveNorthBarrierSend(Up).sensorTrainCenterB(false).sensorTrainCenterA(false). Sensor({},{});
 
 
 
