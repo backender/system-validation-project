@@ -20,10 +20,17 @@ moveSouthBarrierSend, moveSouthBarrierReceive, moveSouthBarrier: BarrierDirectio
 % Multiaction
 sensorTrainCenterA: Bool ;	% Crossing Sensor Action Track A
 sensorTrainCenterB: Bool ;	% Crossing Sensor Action Track B
-sensorTrainEastA ;	% East Sensor Action Track A
-sensorTrainEastB ;	% East Sensor Action Track B
-sensorTrainWestA ;	% West Sensor Action Track A
-sensorTrainWestB ; % West Sensor Action Track B
+%sensorTrainEastA ;	% East Sensor Action Track A
+%sensorTrainEastB ;	% East Sensor Action Track B
+%sensorTrainWestA ;	% West Sensor Action Track A
+%sensorTrainWestB ; % West Sensor Action Track B
+
+recv_sensorTrainEastA ,send_sensorTrainEastA , sensorTrainEastA;	% East Sensor Action Track A
+recv_sensorTrainWestB  , send_sensorTrainWestB  , sensorTrainWestB ;
+recv_sensorTrainWestA , send_sensorTrainWestA , sensorTrainWestA; 
+recv_sensorTrainEastB ,send_sensorTrainEastB , sensorTrainEastB;
+
+
 sendTrainSafe, recvTrainSafe, TrainSafe ;
 
 proc
@@ -31,8 +38,8 @@ proc
 Sensor(sA: Set(Sensor) , sB: Set(Sensor)) =
 % Condition when both tracks are empty... actions allowed are trains can enter on either or both track from any direction
 (sA == {None} && sB == {None})
--> (sensorTrainEastA.Sensor( {East}, sB) + sensorTrainWestA.Sensor( {West}, sB) +
-sensorTrainEastB.Sensor(sA = sA ,  sB = {East}) + sensorTrainWestB.Sensor(sA = sA,  sB = {West}) 
+-> ((sensorTrainEastA.Sensor( {East}, sB) + sensorTrainWestA.Sensor( {West}, sB) +
+sensorTrainEastB.Sensor( sA ,   {East}) + sensorTrainWestB.Sensor(sA ,    {West}) )
 
 ) <>
 % Condition when train is entered on track B
@@ -90,12 +97,12 @@ sensorTrainWestA.Sensor(sA+{West},sB)   + sensorTrainWestB.Sensor(sA,sB+{West} )
 % Track B is free and Train is leaving on track A
 ( (sB == {None}) && (Center in sA && East in sA && West in sA))
 -> (sensorTrainEastB.Sensor(sA, {East}) + sensorTrainWestB.Sensor(sA, {West}) 
-+ sensorTrainCenterA(false).moveSouthBarrierSend(Up).recvTrainSafe.Sensor({None},sB)
++ sensorTrainCenterA(false).moveNorthBarrierSend(Up).recvTrainSafe. Sensor({None},sB)
   ) <>
 % Track A is free and Train on track B is leaving
 ( (sA == {None}) && (Center in sB && East in sB && West in sB))
 -> (sensorTrainEastA.Sensor( {East},sB)+ sensorTrainWestA.Sensor( {West}, sB) 
-+ sensorTrainCenterB(false).moveSouthBarrierSend(Up).recvTrainSafe.Sensor(sA, {None})) <>
++ sensorTrainCenterB(false).moveNorthBarrierSend(Up).recvTrainSafe.Sensor(sA, {None})) <>
 % Track B is free and westbound Train is at track A crossing
 (((Center in sA && (!(West in sA)) )) && ( sB == {None} ))
 -> (sensorTrainWestA.Sensor(sA+{West}, sB) + sensorTrainEastB.Sensor(sA, {East}) + sensorTrainWestB.Sensor(sA, {West})
@@ -116,35 +123,44 @@ sensorTrainWestA.Sensor(sA+{West},sB)   + sensorTrainWestB.Sensor(sA,sB+{West} )
 -> (sensorTrainCenterA(true).Sensor(sA+{Center}, sB) + sensorTrainCenterB(false).Sensor(sA, {None}) ) <>
 % Train entered track B and train is leaving track A
 (( (sB - {East} == {}) ||(sB - {West} == {}) ) && ( Center in sA && East in sA && West in sA))
--> (sensorTrainCenterA(false).Sensor({None}, sB) + sensorTrainCenterB(true).Sensor(sA, sB+{Center})  )
+-> (sensorTrainCenterA(false).Sensor({None}, sB) + sensorTrainCenterB(true).Sensor(sA, sB+{Center})  )+ 
+recv_sensorTrainEastA.Sensor({East} ,{})+
+recv_sensorTrainEastB.Sensor({} ,{East})+
+recv_sensorTrainWestA.Sensor({West} ,{})+
+recv_sensorTrainWestB.Sensor({} ,{West})
 ;
 LightNorth =
 
-setLightNorthReceive(LightOn) .setLightSouthSend(LightOn).LightNorth% NorthLight --> SouthLight Comm for On
+setLightNorthReceive(LightOn) .setLightSouthSend(LightOn).LightNorth % NorthLight --> SouthLight Comm for On
 +
-setLightNorthReceive(LightOff). sendTrainSafe. LightNorth	% Lights are Off here
+setLightNorthReceive(LightOff). sendTrainSafe.( send_sensorTrainEastA + send_sensorTrainWestA + 
+send_sensorTrainEastB + send_sensorTrainWestB ). LightNorth	% Lights are Off here
 ;
 LightSouth =
 setLightSouthReceive(LightOn). setBellSend(BellOn) . LightSouth	%SouthLight --> Bell Comm for On
 +
-setLightSouthReceive(LightOff). setLightNorthSend(LightOff) . LightSouth % SouthLight --> NorthLight Comm for Off
+setLightSouthReceive(LightOff). (setLightNorthSend(LightOff) +send_sensorTrainEastA  + send_sensorTrainWestA + 
+send_sensorTrainEastB + send_sensorTrainWestB) .LightSouth% SouthLight --> NorthLight Comm for Off
 ;
 
 Bell =
 
 setBellReceive(BellOn) . moveNorthBarrierSend(Down) . Bell % Bell Comminicating to North Barricade to Close
 +
-setBellReceive(BellOff) . setLightSouthSend(LightOff) . Bell % Bell Comminicating to South Light to TurnOff
+setBellReceive(BellOff) . (setLightSouthSend(LightOff) +send_sensorTrainEastA + send_sensorTrainWestA + 
+send_sensorTrainEastB + send_sensorTrainWestB). Bell % Bell Comminicating to South Light to TurnOff
 ;
 
 
 BarrierNorth=
-moveNorthBarrierReceive(Up) . moveSouthBarrierSend(Up) . BarrierNorth % North Barrier --> South Barrier Comm for Up movement
+moveNorthBarrierReceive(Up) .( moveSouthBarrierSend(Up) +send_sensorTrainEastA + send_sensorTrainWestA + 
+send_sensorTrainEastB + send_sensorTrainWestB). BarrierNorth % North Barrier --> South Barrier Comm for Up movement
 +
 moveNorthBarrierReceive(Down) . moveSouthBarrierSend(Down). BarrierNorth % North Barrier --> South Barrier Comm for Down movement
 ;
 BarrierSouth=
-moveSouthBarrierReceive(Up) . setBellSend(BellOff) . BarrierSouth % South Barrier --> Bell Comm for Bell Off
+moveSouthBarrierReceive(Up) .( setBellSend(BellOff) +send_sensorTrainEastA + send_sensorTrainWestA + 
+send_sensorTrainEastB + send_sensorTrainWestB). BarrierSouth % South Barrier --> Bell Comm for Bell Off
 +
 moveSouthBarrierReceive(Down) .sendTrainSafe . BarrierSouth % Barrier Closed Completely
 ;
@@ -177,7 +193,11 @@ setLightNorthSend|setLightNorthReceive->setLightNorth, % North Light Comm
 setBellSend|setBellReceive->setBell,	% Bell Comm
 moveNorthBarrierSend|moveNorthBarrierReceive->moveNorthBarrier, %North Barrier Comm
 moveSouthBarrierSend|moveSouthBarrierReceive->moveSouthBarrier, %South Barrier Comm
-sendTrainSafe|recvTrainSafe -> TrainSafe
+sendTrainSafe|recvTrainSafe -> TrainSafe,
+send_sensorTrainEastA| recv_sensorTrainEastA -> sensorTrainEastA,
+send_sensorTrainWestB| recv_sensorTrainWestB -> sensorTrainWestB,
+send_sensorTrainEastB| recv_sensorTrainEastB -> sensorTrainEastB,
+send_sensorTrainWestA| recv_sensorTrainWestA -> sensorTrainWestA
 },
 ( Sensor({None},{None})|| LightNorth || LightSouth || Bell || BarrierNorth||BarrierSouth ) % Initialization Condition
 )
