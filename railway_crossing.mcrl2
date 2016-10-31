@@ -1,213 +1,184 @@
-sort 	
+sort
 
-	Sensor = struct  East | West | Center ; % Sensor Struct
-	LightStatus = struct LightOn|LightOff;  % Light Status
-	BellStatus = struct BellOn|BellOff;     % Bell Status
-	BarrierDirection = struct Up|Down;      % Baarrier Direction
+Sensor = struct East | West | Center |None; % Sensor Struct
+LightStatus = struct LightOn|LightOff; % Light Status
+BellStatus = struct BellOn|BellOff; % Bell Status
+BarrierDirection = struct Up|Down; % Baarrier Direction
 
-act 	% External
-
-
-	lightNorthSetPower , lightSouthSetPower: LightStatus;  % Light Actions
-	bellSetPower : BellStatus;			% Bell Action
-	SouthbarrierMove,NorthbarrierMove : BarrierDirection; % Barrier Actions
-	% Internal
-	setLightNorthSend , setLightNorthReceive , setLightNorth : LightStatus; % North Light Communication Action
-	setLightSouthSend , setLightSouthReceive , setLightSouth: LightStatus;  % South Light Communication Action
-	setBellSend, setBellReceive, setBell: BellStatus; 		      % Bell Communication Action
-	moveNorthBarrierSend, moveNorthBarrierReceive, moveNorthBarrier: BarrierDirection; % North Barrier Communication Action
-	moveSouthBarrierSend, moveSouthBarrierReceive, moveSouthBarrier: BarrierDirection; % South Barrier Communication Action
-	% Multiaction
-	sensorTrainCenterA: Bool ;	% Crossing Sensor Action Track A
-	sensorTrainCenterB: Bool ;	% Crossing Sensor Action Track B
-	sensorTrainEastA ;		% East Sensor Action Track A
-	sensorTrainEastB ;		% East Sensor Action Track B
-	sensorTrainWestA  ;		% West Sensor Action Track A
-	sensorTrainWestB  ;  		% West Sensor Action Track B
-	sendTrainSafe, recvTrainSafe, TrainSafe ;
-
-proc	
-
-	Sensor(sA: Set(Sensor) , sB: Set(Sensor))  = 
-		% Condition when both tracks are empty... actions allowed are trains can enter on either or both track from any direction
-		(sA == {} && sB == {}) 
-			-> (sensorTrainEastA.Sensor(sA +{East}, sB) + sensorTrainWestA.Sensor(sA +{West}, sB)  +
-				sensorTrainEastB.Sensor(sA , sB+{East}) + sensorTrainWestB.Sensor(sA, sB +{West})+
-				(sensorTrainEastA.sensorTrainEastB + sensorTrainEastB.sensorTrainEastA).Sensor(sA+{East}, sB+{East})+
-				(sensorTrainEastA.sensorTrainWestB + sensorTrainWestB.sensorTrainEastA).Sensor(sA+{East}, sB+{West})+
-				(sensorTrainWestA.sensorTrainWestB + sensorTrainWestB.sensorTrainWestA).Sensor(sA+{West}, sB+{West})+
-				(sensorTrainWestA.sensorTrainEastB + sensorTrainEastB.sensorTrainWestA).Sensor(sA+{West}, sB+{East})
-
-			) <>
-		% Condition when train is entered on track B
-		(sA == {} && ((sB - {East} == {}) ||(sB - {West} == {})))
-			 -> setLightNorthSend(LightOn).recvTrainSafe.(sensorTrainCenterB(true).Sensor(sA,sB+{Center})
-			+ sensorTrainEastA.Sensor(sA +{East}, sB) + sensorTrainWestA.Sensor(sA +{West}, sB) + 
-			(sensorTrainEastA.sensorTrainCenterB(true) + sensorTrainCenterB(true).sensorTrainEastA).Sensor(sA+{East}, sB+{Center})+	
-			(sensorTrainWestA.sensorTrainCenterB(true) + sensorTrainCenterB(true).sensorTrainWestA).Sensor(sA+{West}, sB+{Center})	) <>
-		% Condition when train has entered on track A
-		(sB == {} && ((sA - {East} == {}) ||(sA - {West} == {}))) 
-			-> setLightNorthSend(LightOn).recvTrainSafe. sensorTrainCenterA(true).
-				(Sensor(sA + {Center}, sB) +sensorTrainEastB.Sensor(sA , sB+{East}) + sensorTrainWestB.Sensor(sA, sB +{West})) <>
-		% Conditon when train has entered on both tracks
-		(((sA - {East} == {}) ||(sA - {West} == {}))  &&  ((sB - {East} == {}) ||(sB - {West} == {}))) 
-			-> setLightNorthSend(LightOn).recvTrainSafe.(sensorTrainCenterA(true).sensorTrainCenterB(true).Sensor(sA+{Center} , sB+ {Center}) + 
-				sensorTrainCenterA(true).Sensor(sA+ {Center} , sB) + sensorTrainCenterB(true).Sensor(sA, sB+{Center})
-					+ sensorTrainCenterB(true).sensorTrainCenterA(true).Sensor(sA+{Center},sB+{Center})) <>
-		% Condition when train is at Crossing on track A eastbound and Entered on Track B
-		(((Center in sA && (!(East in sA)) )) && ((sB - {East} == {}) ||(sB - {West} == {}))) 
-			->  (sensorTrainEastA.Sensor(sA+{East}, sB) + sensorTrainCenterB(true).Sensor(sA,sB+{Center}) +
-				(sensorTrainEastA.sensorTrainCenterB(true)+sensorTrainCenterB(true).sensorTrainEastA).Sensor(sA+{East},sB+{Center})) <>
-		% Train is at crossing on track A westbound and Entered on track B
-		(((Center in sA && (!(West in sA)) )) && ((sB - {East} == {}) ||(sB - {West} == {}))) 
-			->  (sensorTrainWestA.Sensor(sA+{West}, sB) + sensorTrainCenterB(true).Sensor(sA,sB+{Center}) +
-				(sensorTrainWestA.sensorTrainCenterB(true)+sensorTrainCenterB(true).sensorTrainWestA).Sensor(sA+{West},sB+{Center})) <>
-		% Train is at crossing on track B westbound and Entered on track A
-		(((Center in sB && (!(East in sB)) )) && ((sA - {East} == {}) ||(sA - {West} == {}))) 
-			->  (sensorTrainEastB.Sensor(sA, sB+{East}) + sensorTrainCenterA(true).Sensor(sA+{Center},sB) +
-				(sensorTrainEastB.sensorTrainCenterB(true)+sensorTrainCenterB(true).sensorTrainEastB).Sensor(sA+{Center},sB+{East})) <>
-		% Train is at crossing on track B westbound and Entered on track A
-		(((Center in sB && (!(West in sB)) )) && ((sA - {East} == {}) ||(sA - {West} == {}))) 
-			->  (sensorTrainWestB.Sensor(sA, sB+{West}) + sensorTrainCenterA(true).Sensor(sA+{Center},sB) +
-				(sensorTrainWestB.sensorTrainCenterA(true)+sensorTrainCenterA(true).sensorTrainWestB).Sensor(sA+{Center},sB+{West})) <>
-		% Westbound Train at Crossing on track A, Westbound train at crossing on track B 
-		((Center in sA && (!(West in sA))) && (Center in sB && (!(West in sB))))  
-			->  (
-			sensorTrainWestA.Sensor(sA+{West},sB) + (sensorTrainWestA.sensorTrainWestB
-			+sensorTrainWestB.sensorTrainWestA).Sensor(sA+{West} , sB+{West}) + sensorTrainWestB.Sensor(sA,sB+{West} ))<>
-		% Eastbound Train at Crossing on track A, Westbound train at crossing on track B
-		((Center in sA && (!(East in sA))) && (Center in sB && (!(West in sB))))  
-			->  (sensorTrainEastA.Sensor(sA+{East}, sB) + sensorTrainWestB.Sensor(sA, sB+{West})+ 
-			(sensorTrainEastA.sensorTrainWestB + sensorTrainWestB.sensorTrainEastA).Sensor(sA+{East}, sB+{West})) <>
-		% Westbound Train at Crossing on track A, Eastbound train at crossing on track B
-		((Center in sA && (!(West in sA))) && (Center in sB && (!(East in sB))))  
-			->  (sensorTrainWestA.Sensor(sA+{West}, sB) + sensorTrainEastB.Sensor(sA, sB+{East})+ 
-			(sensorTrainWestA.sensorTrainEastB + sensorTrainEastB.sensorTrainWestA).Sensor(sA+{West}, sB+{East})) <>
-		% Eastbound Train at Crossing on track A, Eastbound train at crossing on track B
-		((Center in sA && (!(East in sA))) && (Center in sB && (!(East in sB))))  
-			->  (sensorTrainEastA.Sensor(sA+{East},sB) + (sensorTrainEastA.sensorTrainEastB
-			+sensorTrainEastB.sensorTrainEastA).Sensor(sA+{East} , sB+{East}) + sensorTrainEastB.Sensor(sA,sB+{East} )) <>
-		% Westbound train at Crossing on track A and train on track B is leaving		
-		((Center in sA && (!(West in sA))) && (Center in sB &&  East in sB && West in sB))  
-			->  (sensorTrainWestA.Sensor(sA+{West}, sB) + sensorTrainCenterB(false).Sensor(sA, {})+
-			(sensorTrainWestA.sensorTrainCenterB(false) + sensorTrainCenterB(false).sensorTrainWestA).Sensor(sA+{West},{})) <>
-		% Eastbound train at Crossing on track A and train on track B is leaving
-		((Center in sA && (!(East in sA))) && (Center in sB &&  East in sB && West in sB))  
-			->  (sensorTrainEastA.Sensor(sA+{East}, sB) + sensorTrainCenterB(false).Sensor(sA, {})+
-			(sensorTrainEastA.sensorTrainCenterB(false) + sensorTrainCenterB(false).sensorTrainEastA).Sensor(sA+{East},{})) <>
-		% Westbound train at Crossing on track B and train on track A is leaving	
-		((Center in sB && (!(West in sB))) && (Center in sA &&  East in sA && West in sA))  
-			->  (sensorTrainWestB.Sensor(sA,sB+{West}) + sensorTrainCenterA(false).Sensor({}, sB)  +
-			(sensorTrainWestB.sensorTrainCenterA(false) + sensorTrainCenterA(false).sensorTrainWestB).Sensor({},sB+{West})) <>
-		% Eastbound train at Crossing on track B and train on track A is leaving	
-		((Center in sB && (!(East in sB))) && (Center in sA &&  East in sA && West in sA))  
-			->  (sensorTrainEastB.Sensor(sA,sB+{East}) + sensorTrainCenterA(false).Sensor({}, sB)  +
-			(sensorTrainEastB.sensorTrainCenterA(false) + sensorTrainCenterA(false).sensorTrainEastB).Sensor({},sB+{East})) <>
-		% Trains Leaving on both tracks
-		( (Center in sB &&  East in sB && West in sB) && (Center in sA &&  East in sA && West in sA))  
-			->  (sensorTrainCenterB(false) .Sensor(sA,{}) + sensorTrainCenterA(false).Sensor({},sB)+
-			(sensorTrainCenterA(false).sensorTrainCenterB(false) + sensorTrainCenterB(false).sensorTrainCenterA(false)).moveSouthBarrierSend(Up).recvTrainSafe.Sensor({},{})) <>
-		% Track B is free and Train is leaving on track A
-		( (sB == {}) && (Center in sA &&  East in sA && West in sA))  
-			->  (sensorTrainEastB.Sensor(sA, sB+{East}) + sensorTrainWestB.Sensor(sA, sB+{West}) + sensorTrainCenterA(false).moveSouthBarrierSend(Up).recvTrainSafe.Sensor({},sB)
-			+ (sensorTrainEastB.sensorTrainCenterA(false) +sensorTrainCenterA(false).sensorTrainEastB).Sensor({}, sB+{East}) 
-			+ (sensorTrainWestB.sensorTrainCenterA(false) +sensorTrainCenterA(false).sensorTrainWestB) .Sensor({}, sB+{West}) ) <>
-		% Track A is free and Train on track B is leaving
-		( (sA == {}) && (Center in sB &&  East in sB && West in sB))  
-			->  (sensorTrainEastA.Sensor(sA+{East},sB)+ sensorTrainWestA.Sensor(sA+{West}, sB) + sensorTrainCenterB(false).moveSouthBarrierSend(Up).recvTrainSafe.Sensor(sA, {})+
-			(sensorTrainCenterB(false).sensorTrainEastA + sensorTrainEastA.sensorTrainCenterB(false)).Sensor(sA+{East} , {}) + 
-			(sensorTrainCenterB(false).sensorTrainWestA + sensorTrainWestA.sensorTrainCenterB(false)).Sensor(sA+{West},{})) <>
-		% Track B is free and westbound Train is at track A crossing
-		(((Center in sA && (!(West in sA)) )) && (  sB == {} )) 
-			->  (sensorTrainWestA.Sensor(sA+{West}, sB) + sensorTrainEastB.Sensor(sA,sB+{East}) + sensorTrainWestB.Sensor(sA,sB+{West})
-			+ (sensorTrainWestA.sensorTrainEastB + sensorTrainEastB.sensorTrainWestA).Sensor(sA+{West}, sB+{East})
-			+ (sensorTrainWestB.sensorTrainWestA + sensorTrainWestA.sensorTrainWestB).Sensor(sA+{West}, sB+{West})) <>
-		% Track B is free and eastbound train is at track A crossing
-		(((Center in sA && (!(East in sA)) )) && (  sB == {} )) 
-			->  (sensorTrainEastA.Sensor(sA+{East}, sB) + sensorTrainEastB.Sensor(sA,sB+{East}) + sensorTrainWestB.Sensor(sA,sB+{West})
-			+ (sensorTrainEastA.sensorTrainEastB + sensorTrainEastB.sensorTrainEastA).Sensor(sA+{East}, sB+{East})
-			+ (sensorTrainWestB.sensorTrainEastA + sensorTrainEastA.sensorTrainWestB).Sensor(sA+{East}, sB+{West})) <> 
-		% Track A is free and Eastbound train is at Track B crossing
-		(((Center in sB && (!(East in sB)) )) && (  sA == {} )) 
-			->  (sensorTrainEastA.Sensor(sA+{East}, sB) + sensorTrainEastB.Sensor(sA,sB+{East}) + sensorTrainWestA.Sensor(sA+ {West}, sB)
-			+ (sensorTrainEastA.sensorTrainEastB + sensorTrainEastB.sensorTrainEastA).Sensor(sA+{East}, sB+{East})
-			+ (sensorTrainEastB.sensorTrainWestA + sensorTrainWestA.sensorTrainEastB).Sensor(sA+{East}, sB+{East}))  <>
-		% Track A is free and Westbound train is at Track B crossing
-		(((Center in sB && (!(West in sB)) )) && (  sA == {} )) 
-			->  (sensorTrainWestB.Sensor(sA, sB+{West}) + sensorTrainEastA.Sensor(sA+{East}, sB) + sensorTrainWestA.Sensor(sA+{West},sB)+
-			(sensorTrainEastA.sensorTrainWestB + sensorTrainWestB.sensorTrainEastA).Sensor(sA+{East},sB+{West}) + 
-			(sensorTrainWestA.sensorTrainWestB + sensorTrainWestB.sensorTrainWestA).Sensor(sA+{West},sB+{West})) <>
-		% Train entered track A and train is leaving track B
-		(( (sA - {East} == {}) ||(sA - {West} == {}) ) && (  Center in sB &&  East in sB && West in sB))
-			->  (sensorTrainCenterA(true).Sensor(sA+{Center}, sB) + sensorTrainCenterB(false).Sensor(sA, {}) +
-			(sensorTrainCenterA(true).sensorTrainCenterB(false)  +sensorTrainCenterB(false).sensorTrainCenterA(true)). Sensor(sA+{Center} , {}))  <>
-		% Train entered track B and train is leaving track A
-		(( (sB - {East} == {}) ||(sB - {West} == {}) ) && (  Center in sA &&  East in sA && West in sA))
-			->  (sensorTrainCenterA(false).Sensor({}, sB) + sensorTrainCenterB(true).Sensor(sA, sB+{Center}) +
-			(sensorTrainCenterA(false).sensorTrainCenterB(true)  +sensorTrainCenterB(true).sensorTrainCenterA(false)). Sensor({}, sB+{Center} ))
-		;
-
-	LightNorth = 
-
-		setLightNorthReceive(LightOn) .setLightSouthSend(LightOn).LightNorth% NorthLight --> SouthLight Comm for On
-		+ 
-		setLightNorthReceive(LightOff). sendTrainSafe.  LightNorth		       % Lights are Off here
-		;
-	LightSouth =
-                	setLightSouthReceive(LightOn).   setBellSend(BellOn) . LightSouth		%SouthLight --> Bell Comm for On
-	     	+
-	    	setLightSouthReceive(LightOff).  setLightNorthSend(LightOff) . LightSouth % SouthLight --> NorthLight Comm for Off
-		;
-
-	Bell =
-
-		setBellReceive(BellOn) .  moveNorthBarrierSend(Down) . Bell % Bell Comminicating to North Barricade to Close
-		+ 
-		setBellReceive(BellOff) .  setLightSouthSend(LightOff) . Bell % Bell Comminicating to South Light to TurnOff
-		;
+act % External
 
 
-	BarrierNorth= 
-		moveNorthBarrierReceive(Up) .     moveSouthBarrierSend(Up) . BarrierNorth % North Barrier --> South Barrier Comm for Up movement
-		+
-		moveNorthBarrierReceive(Down) .  moveSouthBarrierSend(Down). BarrierNorth % North Barrier --> South Barrier Comm for Down movement
-		;
-	BarrierSouth=
-                	moveSouthBarrierReceive(Up) .   setBellSend(BellOff)  . BarrierSouth % South Barrier --> Bell Comm for Bell Off
-		+
-		moveSouthBarrierReceive(Down)  .sendTrainSafe . BarrierSouth % Barrier Closed Completely
-		;
+lightNorthSetPower , lightSouthSetPower: LightStatus; % Light Actions
+bellSetPower : BellStatus;	% Bell Action
+SouthbarrierMove,NorthbarrierMove : BarrierDirection; % Barrier Actions
+% Internal
+setLightNorthSend , setLightNorthReceive , setLightNorth : LightStatus; % North Light Communication Action
+setLightSouthSend , setLightSouthReceive , setLightSouth: LightStatus; % South Light Communication Action
+setBellSend, setBellReceive, setBell: BellStatus; % Bell Communication Action
+moveNorthBarrierSend, moveNorthBarrierReceive, moveNorthBarrier: BarrierDirection; % North Barrier Communication Action
+moveSouthBarrierSend, moveSouthBarrierReceive, moveSouthBarrier: BarrierDirection; % South Barrier Communication Action
+% Multiaction
+sensorTrainCenterA: Bool ;	% Crossing Sensor Action Track A
+sensorTrainCenterB: Bool ;	% Crossing Sensor Action Track B
+sensorTrainEastA ;	% East Sensor Action Track A
+sensorTrainEastB ;	% East Sensor Action Track B
+sensorTrainWestA ;	% West Sensor Action Track A
+sensorTrainWestB ; % West Sensor Action Track B
+sendTrainSafe, recvTrainSafe, TrainSafe ;
 
-init 
-	allow(
-		{
-		sensorTrainCenterA,  % Track A sensor actions
-		sensorTrainEastA, 
-		sensorTrainWestA,
-		sensorTrainCenterB,	% Track B sensor actions
-		sensorTrainEastB,
-		sensorTrainWestB, 
-		lightNorthSetPower,	% Light related actions
-		lightSouthSetPower,
-		setLightNorth,
-		setLightSouth,
-		bellSetPower,	% Bell Related actions
-		setBell,
-		NorthbarrierMove ,	% Barrier Related Actions
-		moveNorthBarrier,
-		SouthbarrierMove ,
-		moveSouthBarrier,
-		TrainSafe
-		}, 
-		comm(
-			{
-			setLightSouthSend|setLightSouthReceive->setLightSouth, % South Light Comm
-			setLightNorthSend|setLightNorthReceive->setLightNorth, % North Light Comm
-			setBellSend|setBellReceive->setBell,		% Bell Comm
-			moveNorthBarrierSend|moveNorthBarrierReceive->moveNorthBarrier, %North Barrier Comm
-			moveSouthBarrierSend|moveSouthBarrierReceive->moveSouthBarrier,  %South Barrier Comm
-			sendTrainSafe|recvTrainSafe -> TrainSafe
-			},
-			( Sensor({},{})|| LightNorth || LightSouth || Bell || BarrierNorth||BarrierSouth ) % Initialization Condition
-		)	
-	);
+proc
+
+Sensor(sA: Set(Sensor) , sB: Set(Sensor)) =
+% Condition when both tracks are empty... actions allowed are trains can enter on either or both track from any direction
+(sA == {None} && sB == {None})
+-> (sensorTrainEastA.Sensor( {East}, sB) + sensorTrainWestA.Sensor( {West}, sB) +
+sensorTrainEastB.Sensor(sA = sA ,  sB = {East}) + sensorTrainWestB.Sensor(sA = sA,  sB = {West}) 
+
+) <>
+% Condition when train is entered on track B
+(sA == {None} && ((sB - {East} == {}) ||(sB - {West} == {})))
+-> (setLightNorthSend(LightOn).recvTrainSafe.sensorTrainCenterB(true).Sensor(sA,sB+{Center})
++ sensorTrainEastA.Sensor( {East}, sB) + sensorTrainWestA.Sensor( {West}, sB)  )	 <>
+% Condition when train has entered on track A
+(sB == {None} && ((sA - {East} == {}) ||(sA - {West} == {})))
+-> (setLightNorthSend(LightOn).recvTrainSafe. sensorTrainCenterA(true).Sensor(sA + {Center}, sB) +
+		sensorTrainEastB.Sensor(sA ,  {East}) + sensorTrainWestB.Sensor(sA,  {West})) <>
+% Conditon when train has entered on both tracks
+(((sA - {East} == {}) ||(sA - {West} == {})) && ((sB - {East} == {}) ||(sB - {West} == {})))
+-> ( 
+setLightNorthSend(LightOn).recvTrainSafe.(sensorTrainCenterA(true).Sensor(sA+ {Center} , sB) +  sensorTrainCenterB(true).Sensor(sA, sB+{Center}) )) <>
+% Condition when train is at Crossing on track A eastbound and Entered on Track B
+(((Center in sA && (!(East in sA)) )) && ((sB - {East} == {}) ||(sB - {West} == {})))
+-> (sensorTrainEastA.Sensor(sA+{East}, sB) + sensorTrainCenterB(true).Sensor(sA,sB+{Center}))   <>
+% Train is at crossing on track A westbound and Entered on track B
+(((Center in sA && (!(West in sA)) )) && ((sB - {East} == {}) ||(sB - {West} == {})))
+-> (sensorTrainWestA.Sensor(sA+{West}, sB) + sensorTrainCenterB(true).Sensor(sA,sB+{Center}) ) <>
+% Train is at crossing on track B westbound and Entered on track A
+(((Center in sB && (!(East in sB)) )) && ((sA - {East} == {}) ||(sA - {West} == {})))
+-> (sensorTrainEastB.Sensor(sA, sB+{East}) + sensorTrainCenterA(true).Sensor(sA+{Center},sB) ) <>
+% Train is at crossing on track B westbound and Entered on track A
+(((Center in sB && (!(West in sB)) )) && ((sA - {East} == {}) ||(sA - {West} == {})))
+-> (sensorTrainWestB.Sensor(sA, sB+{West}) + sensorTrainCenterA(true).Sensor(sA+{Center},sB) ) <>
+% Westbound Train at Crossing on track A, Westbound train at crossing on track B
+((Center in sA && (!(West in sA))) && (Center in sB && (!(West in sB))))
+-> (
+sensorTrainWestA.Sensor(sA+{West},sB)   + sensorTrainWestB.Sensor(sA,sB+{West} ))<>
+% Eastbound Train at Crossing on track A, Westbound train at crossing on track B
+((Center in sA && (!(East in sA))) && (Center in sB && (!(West in sB))))
+-> (sensorTrainEastA.Sensor(sA+{East}, sB) + sensorTrainWestB.Sensor(sA, sB+{West}) ) <>
+% Westbound Train at Crossing on track A, Eastbound train at crossing on track B
+((Center in sA && (!(West in sA))) && (Center in sB && (!(East in sB))))
+-> (sensorTrainWestA.Sensor(sA+{West}, sB) + sensorTrainEastB.Sensor(sA, sB+{East}) ) <>
+% Eastbound Train at Crossing on track A, Eastbound train at crossing on track B
+((Center in sA && (!(East in sA))) && (Center in sB && (!(East in sB))))
+-> (sensorTrainEastA.Sensor(sA+{East},sB)  + sensorTrainEastB.Sensor(sA,sB+{East} )) <>
+% Westbound train at Crossing on track A and train on track B is leaving
+((Center in sA && (!(West in sA))) && (Center in sB && East in sB && West in sB))
+-> (sensorTrainWestA.Sensor(sA+{West}, sB) + sensorTrainCenterB(false).Sensor(sA, {None}) ) <>
+% Eastbound train at Crossing on track A and train on track B is leaving
+((Center in sA && (!(East in sA))) && (Center in sB && East in sB && West in sB))
+-> (sensorTrainEastA.Sensor(sA+{East}, sB) + sensorTrainCenterB(false).Sensor(sA, {None}) ) <>
+% Westbound train at Crossing on track B and train on track A is leaving
+((Center in sB && (!(West in sB))) && (Center in sA && East in sA && West in sA))
+-> (sensorTrainWestB.Sensor(sA,sB+{West}) + sensorTrainCenterA(false).Sensor({None}, sB)  ) <>
+% Eastbound train at Crossing on track B and train on track A is leaving
+((Center in sB && (!(East in sB))) && (Center in sA && East in sA && West in sA))
+-> (sensorTrainEastB.Sensor(sA,sB+{East}) + sensorTrainCenterA(false).Sensor({None}, sB) ) <>
+% Trains Leaving on both tracks
+( (Center in sB && East in sB && West in sB) && (Center in sA && East in sA && West in sA))
+-> (sensorTrainCenterB(false) .Sensor(sA,{None}) + sensorTrainCenterA(false).Sensor({None},sB)) <>
+% Track B is free and Train is leaving on track A
+( (sB == {None}) && (Center in sA && East in sA && West in sA))
+-> (sensorTrainEastB.Sensor(sA, {East}) + sensorTrainWestB.Sensor(sA, {West}) 
++ sensorTrainCenterA(false).moveSouthBarrierSend(Up).recvTrainSafe.Sensor({None},sB)
+  ) <>
+% Track A is free and Train on track B is leaving
+( (sA == {None}) && (Center in sB && East in sB && West in sB))
+-> (sensorTrainEastA.Sensor( {East},sB)+ sensorTrainWestA.Sensor( {West}, sB) 
++ sensorTrainCenterB(false).moveSouthBarrierSend(Up).recvTrainSafe.Sensor(sA, {None})) <>
+% Track B is free and westbound Train is at track A crossing
+(((Center in sA && (!(West in sA)) )) && ( sB == {None} ))
+-> (sensorTrainWestA.Sensor(sA+{West}, sB) + sensorTrainEastB.Sensor(sA, {East}) + sensorTrainWestB.Sensor(sA, {West})
+ ) <>
+% Track B is free and eastbound train is at track A crossing
+(((Center in sA && (!(East in sA)) )) && ( sB == {None} ))
+-> (sensorTrainEastA.Sensor(sA+{East}, sB) + sensorTrainEastB.Sensor(sA, {East}) + sensorTrainWestB.Sensor(sA, {West})
+ ) <>
+% Track A is free and Eastbound train is at Track B crossing
+(((Center in sB && (!(East in sB)) )) && ( sA == {None} ))
+-> (sensorTrainEastA.Sensor( {East}, sB) + sensorTrainEastB.Sensor(sA,sB+{East}) + sensorTrainWestA.Sensor( {West}, sB)
+ ) <>
+% Track A is free and Westbound train is at Track B crossing
+(((Center in sB && (!(West in sB)) )) && ( sA == {None} ))
+-> (sensorTrainWestB.Sensor(sA, sB+{West}) + sensorTrainEastA.Sensor( {East}, sB) + sensorTrainWestA.Sensor( {West},sB) ) <>
+% Train entered track A and train is leaving track B
+(( (sA - {East} == {}) ||(sA - {West} == {}) ) && ( Center in sB && East in sB && West in sB))
+-> (sensorTrainCenterA(true).Sensor(sA+{Center}, sB) + sensorTrainCenterB(false).Sensor(sA, {None}) ) <>
+% Train entered track B and train is leaving track A
+(( (sB - {East} == {}) ||(sB - {West} == {}) ) && ( Center in sA && East in sA && West in sA))
+-> (sensorTrainCenterA(false).Sensor({None}, sB) + sensorTrainCenterB(true).Sensor(sA, sB+{Center})  )
+;
+LightNorth =
+
+setLightNorthReceive(LightOn) .setLightSouthSend(LightOn).LightNorth% NorthLight --> SouthLight Comm for On
++
+setLightNorthReceive(LightOff). sendTrainSafe. LightNorth	% Lights are Off here
+;
+LightSouth =
+setLightSouthReceive(LightOn). setBellSend(BellOn) . LightSouth	%SouthLight --> Bell Comm for On
++
+setLightSouthReceive(LightOff). setLightNorthSend(LightOff) . LightSouth % SouthLight --> NorthLight Comm for Off
+;
+
+Bell =
+
+setBellReceive(BellOn) . moveNorthBarrierSend(Down) . Bell % Bell Comminicating to North Barricade to Close
++
+setBellReceive(BellOff) . setLightSouthSend(LightOff) . Bell % Bell Comminicating to South Light to TurnOff
+;
+
+
+BarrierNorth=
+moveNorthBarrierReceive(Up) . moveSouthBarrierSend(Up) . BarrierNorth % North Barrier --> South Barrier Comm for Up movement
++
+moveNorthBarrierReceive(Down) . moveSouthBarrierSend(Down). BarrierNorth % North Barrier --> South Barrier Comm for Down movement
+;
+BarrierSouth=
+moveSouthBarrierReceive(Up) . setBellSend(BellOff) . BarrierSouth % South Barrier --> Bell Comm for Bell Off
++
+moveSouthBarrierReceive(Down) .sendTrainSafe . BarrierSouth % Barrier Closed Completely
+;
+
+init
+allow(
+{
+sensorTrainCenterA, % Track A sensor actions
+sensorTrainEastA,
+sensorTrainWestA,
+sensorTrainCenterB,	% Track B sensor actions
+sensorTrainEastB,
+sensorTrainWestB,
+lightNorthSetPower,	% Light related actions
+lightSouthSetPower,
+setLightNorth,
+setLightSouth,
+bellSetPower,	% Bell Related actions
+setBell,
+NorthbarrierMove ,	% Barrier Related Actions
+moveNorthBarrier,
+SouthbarrierMove ,
+moveSouthBarrier,
+TrainSafe
+},
+comm(
+{
+setLightSouthSend|setLightSouthReceive->setLightSouth, % South Light Comm
+setLightNorthSend|setLightNorthReceive->setLightNorth, % North Light Comm
+setBellSend|setBellReceive->setBell,	% Bell Comm
+moveNorthBarrierSend|moveNorthBarrierReceive->moveNorthBarrier, %North Barrier Comm
+moveSouthBarrierSend|moveSouthBarrierReceive->moveSouthBarrier, %South Barrier Comm
+sendTrainSafe|recvTrainSafe -> TrainSafe
+},
+( Sensor({None},{None})|| LightNorth || LightSouth || Bell || BarrierNorth||BarrierSouth ) % Initialization Condition
+)
+);
